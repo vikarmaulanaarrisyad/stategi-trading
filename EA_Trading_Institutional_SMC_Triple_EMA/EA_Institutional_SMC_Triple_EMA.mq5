@@ -62,6 +62,10 @@ input int           InpMediumEMA          = 21;              // Medium EMA Perio
 input int           InpTrendEMA           = 125;             // Trend Baseline EMA (Ungu)
 input int           InpPullbackLookback   = 3;               // Jendela Memori Lilin Pullback (Bars)
 
+input group "=== 3B. MULTI-TIMEFRAME (MTF) SCALPING FILTER ==="
+input bool          InpUseHTFFilter       = true;            // Wajib Searah Trend HTF (Scalping Bias H1)
+input ENUM_TIMEFRAMES InpHTFPeriod        = PERIOD_H1;       // Timeframe Trend Utama HTF (Default: H1)
+
 input group "=== 4. FILTER ANTI-FALSE SIGNAL (WATCHDOG) ==="
 input bool          InpFilterChop         = true;            // Filter EMA 8-21 Sideways / Cross Bolak-Balik
 input bool          InpFilterWhipsaw125   = true;            // Filter Lilin Whipsaw Bolak-Balik EMA 125
@@ -91,10 +95,13 @@ input int           InpSessionEndHour     = 23;              // Jam Akhir Tradin
 CTrade         trade;
 CPositionInfo  posInfo;
 
-int            h_ema8   = INVALID_HANDLE;
-int            h_ema21  = INVALID_HANDLE;
-int            h_ema125 = INVALID_HANDLE;
-int            h_atr14  = INVALID_HANDLE;
+int            h_ema8       = INVALID_HANDLE;
+int            h_ema21      = INVALID_HANDLE;
+int            h_ema125     = INVALID_HANDLE;
+int            h_atr14      = INVALID_HANDLE;
+int            h_htf_ema8   = INVALID_HANDLE;
+int            h_htf_ema21  = INVALID_HANDLE;
+int            h_htf_ema125 = INVALID_HANDLE;
 
 datetime       lastBarTime = 0;
 datetime       lastOrderBarTime = 0;
@@ -219,7 +226,15 @@ int OnInit()
    h_ema125 = iMA(_Symbol, _Period, InpTrendEMA, 0, MODE_EMA, PRICE_CLOSE);
    h_atr14  = iATR(_Symbol, _Period, 14);
 
-   if (h_ema8 == INVALID_HANDLE || h_ema21 == INVALID_HANDLE || h_ema125 == INVALID_HANDLE || h_atr14 == INVALID_HANDLE)
+   if (InpUseHTFFilter)
+   {
+      h_htf_ema8   = iMA(_Symbol, InpHTFPeriod, InpFastEMA, 0, MODE_EMA, PRICE_CLOSE);
+      h_htf_ema21  = iMA(_Symbol, InpHTFPeriod, InpMediumEMA, 0, MODE_EMA, PRICE_CLOSE);
+      h_htf_ema125 = iMA(_Symbol, InpHTFPeriod, InpTrendEMA, 0, MODE_EMA, PRICE_CLOSE);
+   }
+
+   if (h_ema8 == INVALID_HANDLE || h_ema21 == INVALID_HANDLE || h_ema125 == INVALID_HANDLE || h_atr14 == INVALID_HANDLE ||
+       (InpUseHTFFilter && (h_htf_ema8 == INVALID_HANDLE || h_htf_ema21 == INVALID_HANDLE || h_htf_ema125 == INVALID_HANDLE)))
    {
       Print("Error: Gagal memuat handle indikator MT5!");
       return INIT_FAILED;
@@ -234,10 +249,13 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   if (h_ema8 != INVALID_HANDLE)   IndicatorRelease(h_ema8);
-   if (h_ema21 != INVALID_HANDLE)  IndicatorRelease(h_ema21);
-   if (h_ema125 != INVALID_HANDLE) IndicatorRelease(h_ema125);
-   if (h_atr14 != INVALID_HANDLE)  IndicatorRelease(h_atr14);
+   if (h_ema8 != INVALID_HANDLE)       IndicatorRelease(h_ema8);
+   if (h_ema21 != INVALID_HANDLE)      IndicatorRelease(h_ema21);
+   if (h_ema125 != INVALID_HANDLE)     IndicatorRelease(h_ema125);
+   if (h_atr14 != INVALID_HANDLE)      IndicatorRelease(h_atr14);
+   if (h_htf_ema8 != INVALID_HANDLE)   IndicatorRelease(h_htf_ema8);
+   if (h_htf_ema21 != INVALID_HANDLE)  IndicatorRelease(h_htf_ema21);
+   if (h_htf_ema125 != INVALID_HANDLE) IndicatorRelease(h_htf_ema125);
 }
 
 //+------------------------------------------------------------------+
@@ -532,12 +550,33 @@ void OnTick()
    }
 
    // -------------------------------------------------------------
+   // D2. EVALUASI TREN MULTI-TIMEFRAME (HTF H1 SCALPING BIAS)
+   // -------------------------------------------------------------
+   bool htfAllowsBuy  = true;
+   bool htfAllowsSell = true;
+
+   if (InpUseHTFFilter && h_htf_ema8 != INVALID_HANDLE && h_htf_ema21 != INVALID_HANDLE && h_htf_ema125 != INVALID_HANDLE)
+   {
+      double htf_c1 = iClose(_Symbol, InpHTFPeriod, 1);
+      double htf_e8[1], htf_e21[1], htf_e125[1];
+      if (CopyBuffer(h_htf_ema8, 0, 1, 1, htf_e8) > 0 &&
+          CopyBuffer(h_htf_ema21, 0, 1, 1, htf_e21) > 0 &&
+          CopyBuffer(h_htf_ema125, 0, 1, 1, htf_e125) > 0)
+      {
+         bool htfBull = (htf_c1 > htf_e125[0]) && (htf_e8[0] > htf_e21[0]);
+         bool htfBear = (htf_c1 < htf_e125[0]) && (htf_e8[0] < htf_e21[0]);
+         htfAllowsBuy  = htfBull;
+         htfAllowsSell = htfBear;
+      }
+   }
+
+   // -------------------------------------------------------------
    // E. KONDISI EKSEKUSI SETUP BUY
    // -------------------------------------------------------------
    bool buyTrendValid = (c1 > buf_ema125[1]) && (buf_ema8[1] > buf_ema21[1]);
    bool buySafetyPass = (!InpFilterChop || !isChop) && (!InpFilterWhipsaw125 || !isWhipsaw) && (!InpFilterOverextended || !isOverextendedBuy) && (!InpFilterStructure || isBullStructure);
 
-   if (!hasBuyPos && buyTrendValid && buyPullbackDetected && hasBullPattern && buySafetyPass)
+   if (!hasBuyPos && htfAllowsBuy && buyTrendValid && buyPullbackDetected && hasBullPattern && buySafetyPass)
    {
       double askPrice = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double slPrice  = 0.0;
@@ -579,7 +618,7 @@ void OnTick()
    bool sellTrendValid = (c1 < buf_ema125[1]) && (buf_ema8[1] < buf_ema21[1]);
    bool sellSafetyPass = (!InpFilterChop || !isChop) && (!InpFilterWhipsaw125 || !isWhipsaw) && (!InpFilterOverextended || !isOverextendedSell) && (!InpFilterStructure || isBearStructure);
 
-   if (!hasSellPos && sellTrendValid && sellPullbackDetected && hasBearPattern && sellSafetyPass)
+   if (!hasSellPos && htfAllowsSell && sellTrendValid && sellPullbackDetected && hasBearPattern && sellSafetyPass)
    {
       double bidPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double slPrice  = 0.0;
