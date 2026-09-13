@@ -103,7 +103,7 @@ showSellSignal       = input.bool(true, 'Tampilkan Sinyal SELL (Panah Merah)', g
 signalMarkerStyle    = input.string('Tombol Panah di Candle (▲ BUY / ▼ SELL)', 'Model Tanda Sinyal di Candle', options = ['Tombol Panah di Candle (▲ BUY / ▼ SELL)', 'Panah Murni Tanpa Tulisan (Arrow Shape)', 'Simbol Panah Minimalis (▲ / ▼)', 'Kotak Detail SL/TP (Badge Panjang)'], group = grp_sig)
 sigFrequency         = input.string('1 Sinyal Per Siklus Setup (Anti-Spam Pro)', 'Manajemen Sinyal Entry', options = ['1 Sinyal Per Siklus Setup (Anti-Spam Pro)', 'Cooldown Dinamis (Jeda 12 Lilin)', 'Bebas Semua Lilin (Multi-Signal)'], group = grp_sig)
 sigMode              = input.string('Selesai Candle (Closed Bar - Non Repainting)', 'Waktu Muncul Sinyal', options = ['Selesai Candle (Closed Bar - Non Repainting)', 'Realtime Saat Candle Berjalan'], group = grp_sig)
-signalStyle          = input.string('Semua Momentum (SMC Sniper + EMA Pullback + Breakout)', 'Gaya / Tipe Sinyal Entry', options = ['Semua Momentum (SMC Sniper + EMA Pullback + Breakout)', 'SMC Sniper Reversal Saja (Pucuk/Lembah)', 'EMA Pullback Saja (Trend Klasik)', 'Valid Breakout Saja (Momentum Tembusan)'], group = grp_sig)
+signalStyle          = input.string('Ultra-Sniper Trend Pullback (Wajib Arah Tren + Koreksi EMA 8/21 + Lilin Konfirmasi)', 'Gaya / Tipe Sinyal Entry', options = ['Ultra-Sniper Trend Pullback (Wajib Arah Tren + Koreksi EMA 8/21 + Lilin Konfirmasi)', 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)', 'SMC Sniper Reversal Saja (Pucuk/Lembah)', 'EMA Pullback Saja (Trend Klasik)', 'Valid Breakout Saja (Momentum Tembusan)'], group = grp_sig)
 sigConfluence        = input.string('Triple EMA + Candle Pattern (Pullback)', 'Mode Konfluensi Sinyal', options = ['Triple EMA + Candle Pattern (Pullback)', 'Triple EMA + SMC Confluence (Ketat)'], group = grp_sig)
 showTpHitMarkers     = input.bool(true, 'Tampilkan Marker TP Hit 🎯 & SL Hit ❌', group = grp_sig)
 showActiveTradeLines = input.bool(true, 'Tampilkan Garis Target SL/TP Trade Aktif', group = grp_sig)
@@ -926,6 +926,9 @@ bool isBullInsideBar = (high[1] <= high[2]) and (low[1] >= low[2]) and isGreen a
 // 9. Two Candle Rejection Bullish (ekor bawah panjang pada candle sebelumnya/saat ini, diikuti penutupan hijau kuat)
 bool isBullTwoCandleRejection = (lowerWick[1] >= cRange[1] * 0.45 or lowerWick >= cRange * 0.45) and isGreen and (close > close[1])
 
+// 10. Rebound Dinamis EMA 8/21 (Ekor Bawah >= 30% Range, Rejection Zona EMA & Tutup Hijau)
+bool isBullEmaBounce = validSize and isGreen and (lowerWick >= cRange * 0.30) and (low <= math.max(ema8, ema21) * 1.0010) and (close >= ema8)
+
 // Evaluasi Nama Pola Bullish
 string bullPatternName = ''
 if isBullEngulf
@@ -946,6 +949,8 @@ else if isBullInsideBar
     bullPatternName := 'Bullish Inside Bar'
 else if isBullTwoCandleRejection
     bullPatternName := 'Two Candle Rejection'
+else if isBullEmaBounce
+    bullPatternName := 'EMA 8/21 Bounce'
 
 bool hasBullPattern = bullPatternName != ''
 
@@ -978,6 +983,9 @@ bool isBearInsideBar = (high[1] <= high[2]) and (low[1] >= low[2]) and isRed and
 // 9. Two Candle Rejection Bearish (ekor atas panjang pada candle sebelumnya/saat ini, diikuti penutupan merah kuat)
 bool isBearTwoCandleRejection = (upperWick[1] >= cRange[1] * 0.45 or upperWick >= cRange * 0.45) and isRed and (close < close[1])
 
+// 10. Rejection Dinamis EMA 8/21 (Ekor Atas >= 30% Range, Rejection Zona EMA & Tutup Merah)
+bool isBearEmaBounce = validSize and isRed and (upperWick >= cRange * 0.30) and (high >= math.min(ema8, ema21) * 0.9990) and (close <= ema8)
+
 // Evaluasi Nama Pola Bearish
 string bearPatternName = ''
 if isBearEngulf
@@ -998,6 +1006,8 @@ else if isBearInsideBar
     bearPatternName := 'Bearish Inside Bar'
 else if isBearTwoCandleRejection
     bearPatternName := 'Two Candle Rejection'
+else if isBearEmaBounce
+    bearPatternName := 'EMA 8/21 Rejection'
 
 bool hasBearPattern = bearPatternName != ''
 
@@ -1196,9 +1206,10 @@ var int lastConfirmedBuyBar  = -100
 var int lastConfirmedSellBar = -100
 
 // Mode Izin Sinyal
-bool allowSniper   = (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'SMC Sniper Reversal Saja (Pucuk/Lembah)')
-bool allowPullback = (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'EMA Pullback Saja (Trend Klasik)')
-bool allowBreakout = (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'Valid Breakout Saja (Momentum Tembusan)')
+bool isUltraSniperMode = (signalStyle == 'Ultra-Sniper Trend Pullback (Wajib Arah Tren + Koreksi EMA 8/21 + Lilin Konfirmasi)')
+bool allowSniper       = (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'SMC Sniper Reversal Saja (Pucuk/Lembah)')
+bool allowPullback     = isUltraSniperMode or (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'EMA Pullback Saja (Trend Klasik)')
+bool allowBreakout     = (signalStyle == 'Semua Momentum (SMC Sniper + EMA Pullback + Breakout)') or (signalStyle == 'Valid Breakout Saja (Momentum Tembusan)')
 
 // Filter Volume Sinyal
 bool condBuyVolume  = not filterVolume or isVolIncreasing or (volume >= volMa20 * 0.95)
@@ -1212,7 +1223,7 @@ bool condBuySniper = htfAllowsBuy and bullZoneConfluence and hasBullPattern and 
 bool condSellSniper = htfAllowsSell and bearZoneConfluence and hasBearPattern and condSellVolume and condSellRsiSafe and (not filterChop or not isEMASideways)
 
 // -------------------------------------------------------------
-// ENGINE 2: TRIPLE EMA PULLBACK ENTRY (TREND CONTINUATION KLASIK)
+// ENGINE 2: TRIPLE EMA PULLBACK ENTRY (TREND CONTINUATION KLASIK & ULTRA-SNIPER)
 // -------------------------------------------------------------
 // 1. Searah trend utama: EMA 8 > EMA 21 dan Close > EMA 125 (opsi strict: EMA 8 > 21 > 125)
 bool condEmaBuyTrend    = strictEmaHierarchy ? ((close > ema125) and (ema8 > ema21) and (ema21 > ema125)) : ((close > ema125) and (ema8 > ema21))
@@ -1222,12 +1233,32 @@ bool condBuyConfluence  = (sigConfluence == 'Triple EMA + Candle Pattern (Pullba
 
 bool condBuyPullbackEntry = htfAllowsBuy and condEmaBuyTrend and condBuyPullback and hasBullPattern and condBuyFilterPass and condBuyConfluence and condBuyVolume and condBuyRsiSafe
 
+// Aturan Khusus Mode Ultra-Sniper:
+// - Arah Trend Wajib Sempurna: HTF H1 Bullish + Hierarki EMA 8 > 21 > 125 + Struktur Bullish + Bukan Sideways
+bool ultraBuyTrend = htfAllowsBuy and (close > ema125) and (ema8 > ema21) and (ema21 > ema125) and (marketTrend == 1 or not filterStructure or isBullStructure) and (not filterChop or not isEMASideways) and (not filter125Whip or not isWhipsaw125) and (not filterOverextended or not isOverextendedBuy)
+// - Menunggu Pullback ke EMA 8 atau EMA 21:
+bool ultraBuyPullbackTouch = (low <= emaTop * 1.0010) and (low >= ema125 * 0.9985) and (close > ema125)
+bool ultraBuyPullbackValid = ultraBuyPullbackTouch or ultraBuyPullbackTouch[1] or ultraBuyPullbackTouch[2] or isPullbackBuyZone or isPullbackBuyZone[1] or isPullbackBuyZone[2] or touchRBS or touchRBS[1]
+// - Menunggu Candle Konfirmasi Terbentuk:
+bool ultraBuyCandleConfirm = isGreen and (close >= ema8) and hasBullPattern
+bool condBuyUltraSniper     = isUltraSniperMode and ultraBuyTrend and ultraBuyPullbackValid and ultraBuyCandleConfirm and condBuyVolume and condBuyRsiSafe
+
 bool condEmaSellTrend   = strictEmaHierarchy ? ((close < ema125) and (ema8 < ema21) and (ema21 < ema125)) : ((close < ema125) and (ema8 < ema21))
 bool condSellPullback   = isPullbackSellZone or isPullbackSellZone[1] or isPullbackSellZone[2] or touchSBR or touchSBR[1] or (not na(majorSupport) and high >= majorSupport * 0.9985 and close <= majorSupport * 1.0015)
 bool condSellFilterPass = (not filterChop or not isEMASideways) and (not filter125Whip or not isWhipsaw125) and (not filterOverextended or not isOverextendedSell) and (not filterStructure or isBearStructure)
 bool condSellConfluence = (sigConfluence == 'Triple EMA + Candle Pattern (Pullback)') ? true : bearZoneConfluence
 
 bool condSellPullbackEntry = htfAllowsSell and condEmaSellTrend and condSellPullback and hasBearPattern and condSellFilterPass and condSellConfluence and condSellVolume and condSellRsiSafe
+
+// Aturan Khusus Mode Ultra-Sniper:
+// - Arah Trend Wajib Sempurna: HTF H1 Bearish + Hierarki EMA 8 < 21 < 125 + Struktur Bearish + Bukan Sideways
+bool ultraSellTrend = htfAllowsSell and (close < ema125) and (ema8 < ema21) and (ema21 < ema125) and (marketTrend == -1 or not filterStructure or isBearStructure) and (not filterChop or not isEMASideways) and (not filter125Whip or not isWhipsaw125) and (not filterOverextended or not isOverextendedSell)
+// - Menunggu Pullback ke EMA 8 atau EMA 21:
+bool ultraSellPullbackTouch = (high >= emaBtm * 0.9990) and (high <= ema125 * 1.0015) and (close < ema125)
+bool ultraSellPullbackValid = ultraSellPullbackTouch or ultraSellPullbackTouch[1] or ultraSellPullbackTouch[2] or isPullbackSellZone or isPullbackSellZone[1] or isPullbackSellZone[2] or touchSBR or touchSBR[1]
+// - Menunggu Candle Konfirmasi Terbentuk:
+bool ultraSellCandleConfirm = isRed and (close <= ema8) and hasBearPattern
+bool condSellUltraSniper     = isUltraSniperMode and ultraSellTrend and ultraSellPullbackValid and ultraSellCandleConfirm and condSellVolume and condSellRsiSafe
 
 // -------------------------------------------------------------
 // ENGINE 3: VALID BREAKOUT MOMENTUM ENTRY (TEMBUSAN LEVEL SOLID)
@@ -1242,8 +1273,8 @@ bool isSellSniperActive   = allowSniper and condSellSniper
 bool isBuyBreakoutActive  = allowBreakout and condBuyBreakout
 bool isSellBreakoutActive = allowBreakout and condSellBreakout
 
-bool isBuyPullbackActive  = allowPullback and condBuyPullbackEntry
-bool isSellPullbackActive = allowPullback and condSellPullbackEntry
+bool isBuyPullbackActive  = allowPullback and (isUltraSniperMode ? condBuyUltraSniper : condBuyPullbackEntry)
+bool isSellPullbackActive = allowPullback and (isUltraSniperMode ? condSellUltraSniper : condSellPullbackEntry)
 
 bool rawBuySignal  = isBuySniperActive or isBuyBreakoutActive or isBuyPullbackActive
 bool rawSellSignal = isSellSniperActive or isSellBreakoutActive or isSellPullbackActive
@@ -1252,8 +1283,8 @@ bool rawBuyTrigger  = triggerReady and rawBuySignal and not rawSellSignal
 bool rawSellTrigger = triggerReady and rawSellSignal and not rawBuySignal
 
 // Kategori & Tipe Sinyal Terpilih
-string activeSignalCategoryBuy  = isBuySniperActive ? 'BUY SNIPER 🎯' : isBuyBreakoutActive ? 'BUY BREAKOUT 🚀' : 'BUY PULLBACK 🟢'
-string activeSignalCategorySell = isSellSniperActive ? 'SELL SNIPER 🎯' : isSellBreakoutActive ? 'SELL BREAKOUT 🚀' : 'SELL PULLBACK 🔴'
+string activeSignalCategoryBuy  = isUltraSniperMode ? 'BUY ULTRA-SNIPER 🎯' : isBuySniperActive ? 'BUY SNIPER 🎯' : isBuyBreakoutActive ? 'BUY BREAKOUT 🚀' : 'BUY PULLBACK 🟢'
+string activeSignalCategorySell = isUltraSniperMode ? 'SELL ULTRA-SNIPER 🎯' : isSellSniperActive ? 'SELL SNIPER 🎯' : isSellBreakoutActive ? 'SELL BREAKOUT 🚀' : 'SELL PULLBACK 🔴'
 
 // ===================================================================
 // SISTEM TRADE LIFECYCLE & STATE MACHINE (ANTI-SPAM 1 SETUP 1 TRADE)
@@ -1348,9 +1379,10 @@ plotshape(showSignals and showSellSignal and sellSignal and isArrowOnly, title =
 
 // Eksekusi Entry & Marker di Candle
 if buySignal
-    float slBuy   = isBuyBreakoutActive ? (not na(majorResistance[1]) ? majorResistance[1] - (atr14 * 0.4) : low - (atr14 * 0.4)) : (math.min(low, not na(majorSupport) ? majorSupport : low) - (atr14 * 0.35))
-    float riskBuy = math.max(math.abs(close - slBuy), atr14 * 0.4)
-    float tpBuy   = close + (riskBuy * 2.0)
+    float slBuyBase = isUltraSniperMode ? (math.min(math.min(low, low[1]), ema21) - (atr14 * 0.35)) : (isBuyBreakoutActive ? (not na(majorResistance[1]) ? majorResistance[1] - (atr14 * 0.4) : low - (atr14 * 0.4)) : (math.min(low, not na(majorSupport) ? majorSupport : low) - (atr14 * 0.35)))
+    float slBuy     = slBuyBase
+    float riskBuy   = math.max(math.abs(close - slBuy), atr14 * 0.4)
+    float tpBuy     = close + (riskBuy * 2.0)
 
     inBuyTrade       := true
     inSellTrade      := false
@@ -1377,9 +1409,10 @@ if buySignal
             label.new(bar_index, low - (atr14 * 0.35), buyLabelText, color = buyLabelBg, textcolor = color.white, style = label.style_label_up, size = size.tiny)
 
 if sellSignal
-    float slSell   = isSellBreakoutActive ? (not na(majorSupport[1]) ? majorSupport[1] + (atr14 * 0.4) : high + (atr14 * 0.4)) : (math.max(high, not na(majorResistance) ? majorResistance : high) + (atr14 * 0.35))
-    float riskSell = math.max(math.abs(slSell - close), atr14 * 0.4)
-    float tpSell   = close - (riskSell * 2.0)
+    float slSellBase = isUltraSniperMode ? (math.max(math.max(high, high[1]), ema21) + (atr14 * 0.35)) : (isSellBreakoutActive ? (not na(majorSupport[1]) ? majorSupport[1] + (atr14 * 0.4) : high + (atr14 * 0.4)) : (math.max(high, not na(majorResistance) ? majorResistance : high) + (atr14 * 0.35)))
+    float slSell     = slSellBase
+    float riskSell   = math.max(math.abs(slSell - close), atr14 * 0.4)
+    float tpSell     = close - (riskSell * 2.0)
 
     inSellTrade      := true
     inBuyTrade       := false
@@ -1418,17 +1451,17 @@ if barstate.islast
 
 // Preview Label Realtime pada Lilin yang Sedang Berjalan (Live Candle)
 var label liveCandleLabel = na
-bool isBuyRealtimeCandidate  = allowNewBuy and ((allowSniper and condBuySniper) or (allowBreakout and condBuyBreakout) or (allowPullback and condBuyPullbackEntry))
-bool isSellRealtimeCandidate = allowNewSell and ((allowSniper and condSellSniper) or (allowBreakout and condSellBreakout) or (allowPullback and condSellPullbackEntry))
+bool isBuyRealtimeCandidate  = allowNewBuy and (isBuyPullbackActive or (allowSniper and condBuySniper) or (allowBreakout and condBuyBreakout))
+bool isSellRealtimeCandidate = allowNewSell and (isSellPullbackActive or (allowSniper and condSellSniper) or (allowBreakout and condSellBreakout))
 
 if showSignals and barstate.islast
     label.delete(liveCandleLabel)
     if not barstate.isconfirmed
         if isBuyRealtimeCandidate
-            string curCandBuy = (allowSniper and condBuySniper) ? 'BUY SNIPER' : (allowBreakout and condBuyBreakout) ? 'BUY BREAKOUT' : 'BUY PULLBACK'
+            string curCandBuy = isUltraSniperMode ? 'BUY ULTRA-SNIPER' : (allowSniper and condBuySniper) ? 'BUY SNIPER' : (allowBreakout and condBuyBreakout) ? 'BUY BREAKOUT' : 'BUY PULLBACK'
             liveCandleLabel := label.new(bar_index, low - (atr14 * 0.30), '⏳ ▲ BUY', color = color.new(#00838f, 15), textcolor = #e0f7fa, style = label.style_label_up, size = size.small, tooltip = 'Menunggu Close Candle: ' + curCandBuy)
         else if isSellRealtimeCandidate
-            string curCandSell = (allowSniper and condSellSniper) ? 'SELL SNIPER' : (allowBreakout and condSellBreakout) ? 'SELL BREAKOUT' : 'SELL PULLBACK'
+            string curCandSell = isUltraSniperMode ? 'SELL ULTRA-SNIPER' : (allowSniper and condSellSniper) ? 'SELL SNIPER' : (allowBreakout and condSellBreakout) ? 'SELL BREAKOUT' : 'SELL PULLBACK'
             liveCandleLabel := label.new(bar_index, high + (atr14 * 0.30), '⏳ ▼ SELL', color = color.new(#880e4f, 15), textcolor = #fce4ec, style = label.style_label_down, size = size.small, tooltip = 'Menunggu Close Candle: ' + curCandSell)
 
 // Tracking Sinyal Terkonfirmasi Terakhir untuk Dashboard
@@ -1438,12 +1471,12 @@ var int    lastConfirmedSignalBar   = na
 
 if buySignal and barstate.isconfirmed
     lastConfirmedSignalText  := activeSignalCategoryBuy + ': ' + (isBuyBreakoutActive ? 'Breakout' : bullPatternName)
-    lastConfirmedSignalColor := isBuySniperActive ? #10b981 : isBuyBreakoutActive ? #38bdf8 : #059669
+    lastConfirmedSignalColor := isUltraSniperMode ? #10b981 : isBuySniperActive ? #10b981 : isBuyBreakoutActive ? #38bdf8 : #059669
     lastConfirmedSignalBar   := bar_index
 
 if sellSignal and barstate.isconfirmed
     lastConfirmedSignalText  := activeSignalCategorySell + ': ' + (isSellBreakoutActive ? 'Breakout' : bearPatternName)
-    lastConfirmedSignalColor := isSellSniperActive ? #fb7185 : isSellBreakoutActive ? #f43f5e : #ef4444
+    lastConfirmedSignalColor := isUltraSniperMode ? #ef4444 : isSellSniperActive ? #fb7185 : isSellBreakoutActive ? #f43f5e : #ef4444
     lastConfirmedSignalBar   := bar_index
 
 // Evaluasi Status Realtime Lilin Aktif Detik Ini
@@ -1457,7 +1490,7 @@ else if inSellTrade
     liveSignalStatus := '🔴 POSISI SELL AKTIF (TP: ' + str.tostring(activeTPPrice, '#.##') + ' 🎯)'
     liveSignalColor  := #ef4444
 else if isBuyRealtimeCandidate
-    string curBuyType = (allowSniper and condBuySniper) ? 'BUY SNIPER 🎯' : (allowBreakout and condBuyBreakout) ? 'BUY BREAKOUT 🚀' : 'BUY PULLBACK 🟢'
+    string curBuyType = isUltraSniperMode ? 'BUY ULTRA-SNIPER 🎯' : (allowSniper and condBuySniper) ? 'BUY SNIPER 🎯' : (allowBreakout and condBuyBreakout) ? 'BUY BREAKOUT 🚀' : 'BUY PULLBACK 🟢'
     if barstate.isconfirmed or sigMode == 'Realtime Saat Candle Berjalan'
         liveSignalStatus := '🟢 ' + curBuyType + ' ✅'
         liveSignalColor  := #10b981
@@ -1465,7 +1498,7 @@ else if isBuyRealtimeCandidate
         liveSignalStatus := '🟢 ' + curBuyType + ' (Lilin Aktif ⏳)'
         liveSignalColor  := #00e5ff
 else if isSellRealtimeCandidate
-    string curSellType = (allowSniper and condSellSniper) ? 'SELL SNIPER 🎯' : (allowBreakout and condSellBreakout) ? 'SELL BREAKOUT 🚀' : 'SELL PULLBACK 🔴'
+    string curSellType = isUltraSniperMode ? 'SELL ULTRA-SNIPER 🎯' : (allowSniper and condSellSniper) ? 'SELL SNIPER 🎯' : (allowBreakout and condSellBreakout) ? 'SELL BREAKOUT 🚀' : 'SELL PULLBACK 🔴'
     if barstate.isconfirmed or sigMode == 'Realtime Saat Candle Berjalan'
         liveSignalStatus := '🔴 ' + curSellType + ' ✅'
         liveSignalColor  := #ef4444
