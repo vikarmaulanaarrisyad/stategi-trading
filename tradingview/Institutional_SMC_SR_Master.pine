@@ -1,0 +1,971 @@
+//@version=6
+indicator('Institutional SMC & S/R Master [XAUUSD Pro]', shorttitle = 'SMC & S/R Master', overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+
+//+------------------------------------------------------------------+
+//|                      PENGATURAN & INPUT USER                     |
+//+------------------------------------------------------------------+
+
+// --- GROUP 0: TRIPLE EXPONENTIAL MOVING AVERAGE (EMA 8, 21, 125) ---
+grp_ema = '0. TRIPLE EXPONENTIAL MOVING AVERAGE (8, 21, 125)'
+showEMA         = input.bool(true, 'Tampilkan Garis Triple EMA', group = grp_ema)
+lenEMA1         = input.int(8, 'Fast EMA Period', minval = 1, group = grp_ema)
+lenEMA2         = input.int(21, 'Medium EMA Period', minval = 1, group = grp_ema)
+lenEMA3         = input.int(125, 'Baseline Trend EMA Period', minval = 1, group = grp_ema)
+colorEMA1       = input.color(color.new(#00e5ff, 0), 'Warna Fast EMA 8 (Cyan)', group = grp_ema)
+colorEMA2       = input.color(color.new(#ffd600, 0), 'Warna Medium EMA 21 (Kuning)', group = grp_ema)
+colorEMA3       = input.color(color.new(#9c27b0, 0), 'Warna Trend EMA 125 (Ungu)', group = grp_ema)
+showEMARibbon   = input.bool(true, 'Tampilkan Ribbon Cloud (EMA 8 - 21)', group = grp_ema)
+
+// --- GROUP 1: SUPPORT & RESISTANCE DINAMIS REALTIME ---
+grp_sr = '1. SUPPORT & RESISTANCE (REALTIME DYNAMIC)'
+showSR          = input.bool(true, 'Tampilkan Garis Support & Resistance', group = grp_sr)
+srFilterMode    = input.string('Tampilkan S/R Terdekat & Terkuat', 'Filter Level S/R', options = ['Tampilkan S/R Terdekat & Terkuat', 'Hanya S/R Terdekat (Minor Terdekat)', 'Hanya S/R Terkuat (Major)'], group = grp_sr)
+srExtendModel   = input.string('Extend Right', 'Model Jangkauan Garis S/R', options = ['Extend Right', 'Full Screen (Both)', 'None'], group = grp_sr)
+srTrackPrice    = input.bool(false, 'Tampilkan Garis Tangga Historis (Track Price Trail)', group = grp_sr)
+srLabelOffset   = input.int(25, 'Jarak Label S/R ke Kanan Lilin (Offset)', minval = 5, maxval = 80, group = grp_sr)
+srLengthMajor   = input.int(15, 'Lookback Major S/R (Kekuatan Level)', minval = 5, group = grp_sr)
+srLengthMinor   = input.int(5, 'Lookback Minor S/R (Level Terdekat)', minval = 2, group = grp_sr)
+colorResistance = input.color(color.new(#f23645, 0), 'Warna Resistance (Merah)', group = grp_sr)
+colorSupport    = input.color(color.new(#089981, 0), 'Warna Support (Hijau)', group = grp_sr)
+lineWidthSR     = input.int(2, 'Ketebalan Garis S/R', minval = 1, maxval = 4, group = grp_sr)
+showSRLabels    = input.bool(true, 'Tampilkan Label Harga S/R di Kanan', group = grp_sr)
+
+// --- GROUP 2: AUTO FIBONACCI GOLDEN ZONE ---
+grp_fibo = '2. AUTO FIBONACCI GOLDEN ZONE (0.50 - 0.65 OTE)'
+showFibo        = input.bool(true, 'Tampilkan Auto Fibonacci Golden Zone', group = grp_fibo)
+fiboExtendModel = input.string('Extend Right', 'Model Jangkauan Golden Zone', options = ['Extend Right', 'None'], group = grp_fibo)
+fiboLength      = input.int(20, 'Lookback Dealing Range Fibonacci', minval = 5, group = grp_fibo)
+colorGoldenZone = input.color(color.new(#f59e0b, 75), 'Warna Kotak Golden Pocket', group = grp_fibo)
+colorFiboLines  = input.color(color.new(#eab308, 10), 'Warna Garis Rasio Emas 61.8%', group = grp_fibo)
+showFiboLabels  = input.bool(true, 'Tampilkan Label Rasio Emas', group = grp_fibo)
+
+// --- GROUP 3: MARKET STRUCTURE (BOS & CHOCH) ---
+grp_ms = '3. STRUKTUR PASAR (BOS & CHOCH)'
+showStructure   = input.bool(true, 'Tampilkan BOS & CHoCH', group = grp_ms)
+structLookback  = input.int(5, 'Lookback Swing Structure', minval = 2, group = grp_ms)
+showSwingLabels = input.bool(true, 'Tampilkan Label Swing (HH, HL, LH, LL)', group = grp_ms)
+colorBullStruct = input.color(color.new(#00e676, 0), 'Warna Bullish Structure', group = grp_ms)
+colorBearStruct = input.color(color.new(#ff1744, 0), 'Warna Bearish Structure', group = grp_ms)
+
+// --- GROUP 4: ORDER BLOCK (OB) ---
+grp_ob = '4. INSTITUTIONAL ORDER BLOCK (OB)'
+showOB           = input.bool(true, 'Tampilkan Zona Order Block (OB)', group = grp_ob)
+obDisplayMode    = input.string('1 Terdekat (1 Demand + 1 Supply Terdekat)', 'Pilihan Tampilan OB', options = ['1 Terdekat (1 Demand + 1 Supply Terdekat)', '1 Terbaru (Lilin Paling Baru)', 'Semua Zona Aktif'], group = grp_ob)
+colorBullOB      = input.color(color.new(#00bcd4, 75), 'Warna Bullish OB (Demand)', group = grp_ob)
+colorBearOB      = input.color(color.new(#e91e63, 75), 'Warna Bearish OB (Supply)', group = grp_ob)
+borderBullOB     = input.color(color.new(#00bcd4, 20), 'Garis Tepi Bullish OB', group = grp_ob)
+borderBearOB     = input.color(color.new(#e91e63, 20), 'Garis Tepi Bearish OB', group = grp_ob)
+hideMitigatedOB  = input.bool(true, 'Hapus OB yang Sudah Termitigasi', group = grp_ob)
+showOBLabels     = input.bool(true, 'Tampilkan Keterangan Teks di Kotak OB (Huruf Kecil)', group = grp_ob)
+
+// --- GROUP 5: FAIR VALUE GAP (FVG / IMBALANCE) ---
+grp_fvg = '5. FAIR VALUE GAP (FVG / IMBALANCE)'
+showFVG          = input.bool(true, 'Tampilkan Fair Value Gap (FVG)', group = grp_fvg)
+fvgDisplayMode   = input.string('1 Terdekat (1 Bull + 1 Bear Terdekat)', 'Pilihan Tampilan FVG', options = ['1 Terdekat (1 Bull + 1 Bear Terdekat)', '1 Terbaru (Paling Baru)', 'Semua Gap Aktif', 'Nonaktifkan'], group = grp_fvg)
+fvgMinTicks      = input.int(20, 'Minimal Ukuran FVG (Ticks/Points)', minval = 1, group = grp_fvg)
+colorBullFVG     = input.color(color.new(#10b981, 80), 'Warna Bullish FVG', group = grp_fvg)
+colorBearFVG     = input.color(color.new(#ef4444, 80), 'Warna Bearish FVG', group = grp_fvg)
+hideMitigatedFVG = input.bool(true, 'Hapus FVG yang Sudah Tertutup (Filled)', group = grp_fvg)
+showFVGLabels    = input.bool(true, 'Tampilkan Keterangan Teks di Kotak FVG (Huruf Kecil)', group = grp_fvg)
+
+// --- GROUP 6: HUD DASHBOARD TABLE ---
+grp_hud = '6. HUD DASHBOARD ON-CHART'
+showDashboard = input.bool(true, 'Tampilkan Tabel HUD Dashboard', group = grp_hud)
+dashPosition  = input.string('Top Left', 'Posisi Dashboard', options = ['Top Left', 'Bottom Left', 'Top Right', 'Bottom Right'], group = grp_hud)
+dashBgColor   = input.color(color.new(#1e222d, 10), 'Warna Background Dashboard', group = grp_hud)
+dashTextColor = input.color(color.new(#f1f5f9, 0), 'Warna Teks Dashboard', group = grp_hud)
+
+// --- GROUP 7: SINYAL KONFIRMASI (BUY & SELL ENTRY) ---
+grp_sig = '7. SINYAL KONFIRMASI TRIPLE EMA & PATTERN'
+showSignals         = input.bool(false, 'Tampilkan Sinyal di Chart (Hidden by Default)', group = grp_sig)
+showBuySignal       = input.bool(false, 'Tampilkan Sinyal BUY di Chart (Hidden)', group = grp_sig)
+showSellSignal      = input.bool(false, 'Tampilkan Sinyal SELL di Chart (Hidden)', group = grp_sig)
+sigMode             = input.string('Selesai Candle (Closed Bar - Non Repainting)', 'Waktu Muncul Sinyal', options = ['Selesai Candle (Closed Bar - Non Repainting)', 'Realtime Saat Candle Berjalan'], group = grp_sig)
+sigConfluence       = input.string('Triple EMA + Candle Pattern (Pullback)', 'Mode Konfluensi Sinyal', options = ['Triple EMA + Candle Pattern (Pullback)', 'Triple EMA + SMC Confluence (Ketat)'], group = grp_sig)
+showPatternLabels   = input.bool(false, 'Tampilkan Nama Pola Lilin pada Sinyal (Hidden)', group = grp_sig)
+
+// --- FILTER KEAMANAN / WASPADAI SINYAL FALSE ---
+grp_flt = '8. FILTER KEAMANAN (WASPADAI FALSE SIGNAL)'
+filterChop          = input.bool(true, 'Filter EMA 8-21 Sideways / Bolak-Balik', group = grp_flt)
+filter125Whip       = input.bool(true, 'Filter Whipsaw Lilin Bolak-Balik EMA 125', group = grp_flt)
+filterStructure     = input.bool(true, 'Filter Struktur Market (Wajib HH-HL / LH-LL)', group = grp_flt)
+filterOverextended  = input.bool(true, 'Filter Lilin Terlalu Jauh dari EMA (Overextended)', group = grp_flt)
+maxAtrExtension     = input.float(2.2, 'Batas Overextension Lilin ke EMA (x ATR)', minval = 1.0, step = 0.1, group = grp_flt)
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 0: TRIPLE EXPONENTIAL MOVING AVERAGE (EMA 8, 21, 125)   |
+//+------------------------------------------------------------------+
+
+float ema8   = ta.ema(close, lenEMA1)
+float ema21  = ta.ema(close, lenEMA2)
+float ema125 = ta.ema(close, lenEMA3)
+
+pEma1 = plot(showEMA ? ema8 : na, title = 'EMA 8 (Fast)', color = colorEMA1, linewidth = 1)
+pEma2 = plot(showEMA ? ema21 : na, title = 'EMA 21 (Medium)', color = colorEMA2, linewidth = 2)
+plot(showEMA ? ema125 : na, title = 'EMA 125 (Trend Baseline)', color = colorEMA3, linewidth = 3)
+
+color ribbonColor = (ema8 >= ema21) ? color.new(#00e5ff, 85) : color.new(#ff5252, 85)
+fill(pEma1, pEma2, color = (showEMA and showEMARibbon) ? ribbonColor : na, title = 'EMA 8-21 Cloud Ribbon')
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 1: SUPPORT & RESISTANCE REALTIME (SELALU MENGIKUTI)     |
+//+------------------------------------------------------------------+
+
+// 1. Level Ekstremum Dinamis Realtime (mengikuti ujung candle tertinggi/terendah tanpa lag!)
+float hiDynamicMajor = ta.highest(high, srLengthMajor)
+float loDynamicMajor = ta.lowest(low, srLengthMajor)
+
+float hiDynamicMinor = ta.highest(high, srLengthMinor)
+float loDynamicMinor = ta.lowest(low, srLengthMinor)
+
+// 2. Pivot Swing Konfirmasi Cepat
+pHiMajor = ta.pivothigh(high, srLengthMajor, 2)
+pLoMajor = ta.pivotlow(low, srLengthMajor, 2)
+
+pHiMinor = ta.pivothigh(high, srLengthMinor, 2)
+pLoMinor = ta.pivotlow(low, srLengthMinor, 2)
+
+var float majorResistance = na
+var int   majorResBar     = na
+var float majorSupport    = na
+var int   majorSupBar     = na
+
+var float minorResistance = na
+var int   minorResBar     = na
+var float minorSupport    = na
+var int   minorSupBar     = na
+
+// Update dinamis: Jika harga bergerak naik/turun melewati level lama, garis LANGSUNG mengikuti lilin terkini!
+if not na(pHiMajor)
+    majorResistance := pHiMajor
+    majorResBar     := bar_index - 2
+else if na(majorResistance) or (high > majorResistance)
+    majorResistance := hiDynamicMajor
+    majorResBar     := bar_index
+
+if not na(pLoMajor)
+    majorSupport := pLoMajor
+    majorSupBar  := bar_index - 2
+else if na(majorSupport) or (low < majorSupport)
+    majorSupport := loDynamicMajor
+    majorSupBar  := bar_index
+
+if not na(pHiMinor)
+    minorResistance := pHiMinor
+    minorResBar     := bar_index - 2
+else if na(minorResistance) or (high > minorResistance)
+    minorResistance := hiDynamicMinor
+    minorResBar     := bar_index
+
+if not na(pLoMinor)
+    minorSupport := pLoMinor
+    minorSupBar  := bar_index - 2
+else if na(minorSupport) or (low < minorSupport)
+    minorSupport := loDynamicMinor
+    minorSupBar  := bar_index
+
+// Filter visibilitas Major / Minor
+bool drawMajor = srFilterMode != 'Hanya S/R Terdekat (Minor Terdekat)'
+bool drawMinor = srFilterMode != 'Hanya S/R Terkuat (Major)'
+
+// Mode ekstensi garis
+extendStyle = srExtendModel == 'Full Screen (Both)' ? extend.both : srExtendModel == 'Extend Right' ? extend.right : extend.none
+
+// Proyeksikan garis horizontal penuh native TradingView ke sumbu harga (Track Price)
+plot(showSR and srTrackPrice and drawMajor ? majorResistance : na, 'Major Resistance Live Track', color = colorResistance, linewidth = lineWidthSR, style = plot.style_linebr, trackprice = true)
+plot(showSR and srTrackPrice and drawMajor ? majorSupport : na, 'Major Support Live Track', color = colorSupport, linewidth = lineWidthSR, style = plot.style_linebr, trackprice = true)
+plot(showSR and srTrackPrice and drawMinor ? minorResistance : na, 'Minor Resistance Live Track', color = color.new(colorResistance, 35), linewidth = 1, style = plot.style_linebr, trackprice = true)
+plot(showSR and srTrackPrice and drawMinor ? minorSupport : na, 'Minor Support Live Track', color = color.new(colorSupport, 35), linewidth = 1, style = plot.style_linebr, trackprice = true)
+
+// Variabel garis & label visual di chart
+var line lineResMajor = na
+var line lineSupMajor = na
+var line lineResMinor = na
+var line lineSupMinor = na
+
+var label lblResMajor = na
+var label lblSupMajor = na
+var label lblResMinor = na
+var label lblSupMinor = na
+
+if barstate.islast and showSR
+    line.delete(lineResMajor)
+    line.delete(lineSupMajor)
+    line.delete(lineResMinor)
+    line.delete(lineSupMinor)
+    label.delete(lblResMajor)
+    label.delete(lblSupMajor)
+    label.delete(lblResMinor)
+    label.delete(lblSupMinor)
+
+    float atrVal = ta.atr(14)
+    bool closeRes = not na(majorResistance) and not na(minorResistance) and (math.abs(majorResistance - minorResistance) < (atrVal * 1.0))
+    bool closeSup = not na(majorSupport) and not na(minorSupport) and (math.abs(majorSupport - minorSupport) < (atrVal * 1.0))
+
+    int xMajor    = bar_index + srLabelOffset
+    int xMinorRes = closeRes ? (bar_index + srLabelOffset + 14) : (bar_index + srLabelOffset)
+    int xMinorSup = closeSup ? (bar_index + srLabelOffset + 14) : (bar_index + srLabelOffset)
+
+    // 1. Major Resistance Terkuat
+    if drawMajor and not na(majorResistance)
+        int startRes = not na(majorResBar) ? majorResBar : (bar_index - srLengthMajor)
+        lineResMajor := line.new(startRes, majorResistance, bar_index + srLabelOffset, majorResistance, color = colorResistance, width = lineWidthSR, style = line.style_solid, extend = extendStyle)
+        if showSRLabels
+            lblResMajor := label.new(xMajor, majorResistance, 'R Major: ' + str.tostring(majorResistance, '#.##'), color = color.new(colorResistance, 20), textcolor = color.white, style = label.style_label_left, size = size.small)
+
+    // 2. Major Support Terkuat
+    if drawMajor and not na(majorSupport)
+        int startSup = not na(majorSupBar) ? majorSupBar : (bar_index - srLengthMajor)
+        lineSupMajor := line.new(startSup, majorSupport, bar_index + srLabelOffset, majorSupport, color = colorSupport, width = lineWidthSR, style = line.style_solid, extend = extendStyle)
+        if showSRLabels
+            lblSupMajor := label.new(xMajor, majorSupport, 'S Major: ' + str.tostring(majorSupport, '#.##'), color = color.new(colorSupport, 20), textcolor = color.white, style = label.style_label_left, size = size.small)
+
+    // 3. Minor Resistance Terdekat
+    if drawMinor and not na(minorResistance) and minorResistance != majorResistance
+        int startMinRes = not na(minorResBar) ? minorResBar : (bar_index - srLengthMinor)
+        lineResMinor := line.new(startMinRes, minorResistance, bar_index + srLabelOffset, minorResistance, color = color.new(colorResistance, 40), width = 1, style = line.style_dashed, extend = extendStyle)
+        if showSRLabels
+            lblResMinor := label.new(xMinorRes, minorResistance, 'R Minor (Terdekat): ' + str.tostring(minorResistance, '#.##'), color = color.new(colorResistance, 50), textcolor = color.white, style = label.style_label_left, size = size.tiny)
+
+    // 4. Minor Support Terdekat
+    if drawMinor and not na(minorSupport) and minorSupport != majorSupport
+        int startMinSup = not na(minorSupBar) ? minorSupBar : (bar_index - srLengthMinor)
+        lineSupMinor := line.new(startMinSup, minorSupport, bar_index + srLabelOffset, minorSupport, color = color.new(colorSupport, 40), width = 1, style = line.style_dashed, extend = extendStyle)
+        if showSRLabels
+            lblSupMinor := label.new(xMinorSup, minorSupport, 'S Minor (Terdekat): ' + str.tostring(minorSupport, '#.##'), color = color.new(colorSupport, 50), textcolor = color.white, style = label.style_label_left, size = size.tiny)
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 2: AUTO FIBONACCI GOLDEN ZONE (MENGIKUTI AYUNAN AKTIF)  |
+//+------------------------------------------------------------------+
+
+// Ayunan dealing range real-time
+float fiboHighLive = ta.highest(high, fiboLength)
+float fiboLowLive  = ta.lowest(low, fiboLength)
+
+pHiFibo = ta.pivothigh(high, fiboLength, 2)
+pLoFibo = ta.pivotlow(low, fiboLength, 2)
+
+var float fiboHighVal = na
+var int   fiboHighBar = na
+var float fiboLowVal  = na
+var int   fiboLowBar  = na
+
+if not na(pHiFibo)
+    fiboHighVal := pHiFibo
+    fiboHighBar := bar_index - 2
+else if na(fiboHighVal) or (high > fiboHighVal)
+    fiboHighVal := fiboHighLive
+    fiboHighBar := bar_index
+
+if not na(pLoFibo)
+    fiboLowVal  := pLoFibo
+    fiboLowBar  := bar_index - 2
+else if na(fiboLowVal) or (low < fiboLowVal)
+    fiboLowVal  := fiboLowLive
+    fiboLowBar  := bar_index
+
+var box   boxGoldenZone = na
+var line  lineFibo618   = na
+var label lblFiboGold   = na
+
+bool  isFiboBullish = not na(fiboHighBar) and not na(fiboLowBar) and (fiboHighBar >= fiboLowBar)
+float fiboDiff      = math.abs(nz(fiboHighVal) - nz(fiboLowVal))
+
+float fiboP50  = isFiboBullish ? nz(fiboHighVal) - (fiboDiff * 0.50) : nz(fiboLowVal) + (fiboDiff * 0.50)
+float fiboP65  = isFiboBullish ? nz(fiboHighVal) - (fiboDiff * 0.65) : nz(fiboLowVal) + (fiboDiff * 0.65)
+float fiboP618 = isFiboBullish ? nz(fiboHighVal) - (fiboDiff * 0.618) : nz(fiboLowVal) + (fiboDiff * 0.618)
+
+float topGold = math.max(fiboP50, fiboP65)
+float btmGold = math.min(fiboP50, fiboP65)
+
+bool inGoldenZone = not na(fiboHighVal) and not na(fiboLowVal) and (fiboDiff > 0) and (close <= topGold) and (close >= btmGold)
+
+plot(showFibo and srTrackPrice ? fiboP618 : na, 'Fibo 61.8% Live Track', color = colorFiboLines, linewidth = 2, style = plot.style_linebr, trackprice = true)
+
+extendFiboStyle = fiboExtendModel == 'Extend Right' ? extend.right : extend.none
+
+if barstate.islast and showFibo and not na(fiboHighVal) and not na(fiboLowVal) and fiboDiff > 0
+    box.delete(boxGoldenZone)
+    line.delete(lineFibo618)
+    label.delete(lblFiboGold)
+
+    int startBar = math.min(nz(fiboHighBar), nz(fiboLowBar))
+
+    boxGoldenZone := box.new(startBar, topGold, bar_index + srLabelOffset, btmGold, bgcolor = colorGoldenZone, border_color = color.new(#f59e0b, 30), border_width = 1, extend = extendFiboStyle)
+    if showFiboLabels
+        box.set_text(boxGoldenZone, 'Fibo Golden Zone (OTE 50-65%)')
+        box.set_text_size(boxGoldenZone, size.tiny)
+        box.set_text_color(boxGoldenZone, color.new(#f59e0b, 10))
+        box.set_text_valign(boxGoldenZone, text.align_top)
+        box.set_text_halign(boxGoldenZone, text.align_center)
+
+    lineFibo618 := line.new(startBar, fiboP618, bar_index + srLabelOffset, fiboP618, color = colorFiboLines, width = 2, style = line.style_dashed, extend = extendFiboStyle)
+
+    if showFiboLabels
+        string goldText = 'Golden Pocket 61.8%: ' + str.tostring(fiboP618, '#.##')
+        lblFiboGold := label.new(bar_index + srLabelOffset, fiboP618, goldText, color = color.new(#f59e0b, 10), textcolor = color.white, style = label.style_label_left, size = size.tiny)
+
+
+//+------------------------------------------------------------------+
+//|            MODUL 3: STRUKTUR PASAR (BOS & CHOCH)                 |
+//+------------------------------------------------------------------+
+
+pHiStruct = ta.pivothigh(high, structLookback, structLookback)
+pLoStruct = ta.pivotlow(low, structLookback, structLookback)
+
+var float lastSwingHigh    = na
+var float prevSwingHigh    = na
+var int   lastSwingHighBar = na
+var float lastSwingLow     = na
+var float prevSwingLow     = na
+var int   lastSwingLowBar  = na
+
+var int    marketTrend     = 0 // 1 = Bullish, -1 = Bearish
+var string lastStructName  = 'None'
+var string lastSwingStatus = 'None' // HH, HL, LH, LL
+
+if not na(pHiStruct)
+    prevSwingHigh := lastSwingHigh
+    lastSwingHigh := pHiStruct
+    lastSwingHighBar := bar_index - structLookback
+    string shType = (not na(prevSwingHigh) and lastSwingHigh > prevSwingHigh) ? 'HH' : 'LH'
+    lastSwingStatus := shType
+    if showSwingLabels and showStructure
+        label.new(lastSwingHighBar, lastSwingHigh, shType, color = color.new(color.gray, 80), textcolor = color.white, style = label.style_label_down, size = size.tiny)
+
+if not na(pLoStruct)
+    prevSwingLow := lastSwingLow
+    lastSwingLow := pLoStruct
+    lastSwingLowBar := bar_index - structLookback
+    string slType = (not na(prevSwingLow) and lastSwingLow > prevSwingLow) ? 'HL' : 'LL'
+    lastSwingStatus := slType
+    if showSwingLabels and showStructure
+        label.new(lastSwingLowBar, lastSwingLow, slType, color = color.new(color.gray, 80), textcolor = color.white, style = label.style_label_up, size = size.tiny)
+
+bool bullBreak = not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
+bool bearBreak = not na(lastSwingLow) and ta.crossunder(close, lastSwingLow)
+
+var line  structLine = na
+var label structLbl  = na
+
+if showStructure
+    if bullBreak
+        if marketTrend == 1
+            lastStructName := 'BULLISH BOS'
+            structLine := line.new(lastSwingHighBar, lastSwingHigh, bar_index, lastSwingHigh, color = colorBullStruct, width = 2, style = line.style_solid)
+            structLbl  := label.new(math.round((lastSwingHighBar + bar_index) / 2), lastSwingHigh, 'BOS', color = colorBullStruct, textcolor = color.black, style = label.style_label_down, size = size.tiny)
+        else
+            lastStructName := 'BULLISH CHoCH'
+            marketTrend := 1
+            structLine := line.new(lastSwingHighBar, lastSwingHigh, bar_index, lastSwingHigh, color = colorBullStruct, width = 2, style = line.style_dashed)
+            structLbl  := label.new(math.round((lastSwingHighBar + bar_index) / 2), lastSwingHigh, 'CHoCH', color = colorBullStruct, textcolor = color.black, style = label.style_label_down, size = size.tiny)
+
+    if bearBreak
+        if marketTrend == -1
+            lastStructName := 'BEARISH BOS'
+            structLine := line.new(lastSwingLowBar, lastSwingLow, bar_index, lastSwingLow, color = colorBearStruct, width = 2, style = line.style_solid)
+            structLbl  := label.new(math.round((lastSwingLowBar + bar_index) / 2), lastSwingLow, 'BOS', color = colorBearStruct, textcolor = color.white, style = label.style_label_up, size = size.tiny)
+        else
+            lastStructName := 'BEARISH CHoCH'
+            marketTrend := -1
+            structLine := line.new(lastSwingLowBar, lastSwingLow, bar_index, lastSwingLow, color = colorBearStruct, width = 2, style = line.style_dashed)
+            structLbl  := label.new(math.round((lastSwingLowBar + bar_index) / 2), lastSwingLow, 'CHoCH', color = colorBearStruct, textcolor = color.white, style = label.style_label_up, size = size.tiny)
+
+
+//+------------------------------------------------------------------+
+//|            MODUL 4: INSTITUTIONAL ORDER BLOCK (OB)               |
+//+------------------------------------------------------------------+
+
+type OrderBlock
+    box   boxId
+    float top
+    float bottom
+    bool  isBullish
+    bool  isMitigated
+
+var orderBlocks = array.new<OrderBlock>()
+
+// Deteksi Bullish OB
+bool isBullishDisplacement = (close > open) and (close[1] < open[1]) and (close > high[1]) and ((close - open) > (ta.atr(14) * 1.2))
+if showOB and isBullishDisplacement
+    float obTop = math.max(open[1], close[1])
+    float obBtm = low[1]
+    box b = box.new(bar_index - 1, obTop, bar_index, obBtm, bgcolor = colorBullOB, border_color = borderBullOB, border_width = 1, extend = extend.right, text = showOBLabels ? 'Bullish OB (Demand)' : '', text_size = size.tiny, text_color = color.white, text_valign = text.align_center, text_halign = text.align_center)
+    array.push(orderBlocks, OrderBlock.new(b, obTop, obBtm, true, false))
+
+// Deteksi Bearish OB
+bool isBearishDisplacement = (close < open) and (close[1] > open[1]) and (close < low[1]) and ((open - close) > (ta.atr(14) * 1.2))
+if showOB and isBearishDisplacement
+    float obTop = high[1]
+    float obBtm = math.min(open[1], close[1])
+    box b = box.new(bar_index - 1, obTop, bar_index, obBtm, bgcolor = colorBearOB, border_color = borderBearOB, border_width = 1, extend = extend.right, text = showOBLabels ? 'Bearish OB (Supply)' : '', text_size = size.tiny, text_color = color.white, text_valign = text.align_center, text_halign = text.align_center)
+    array.push(orderBlocks, OrderBlock.new(b, obTop, obBtm, false, false))
+
+// Manajemen Array OB & Pelacakan Mitigasi
+int unmitigatedOBCount = 0
+int bestBullIdx = -1
+float minBullDist = 1e10
+int bestBearIdx = -1
+float minBearDist = 1e10
+
+int latestBullIdx = -1
+int latestBearIdx = -1
+
+if array.size(orderBlocks) > 0
+    for i = 0 to array.size(orderBlocks) - 1
+        OrderBlock currentOB = array.get(orderBlocks, i)
+        if not currentOB.isMitigated
+            // Cek Mitigasi Bullish OB
+            if currentOB.isBullish and low <= currentOB.top
+                currentOB.isMitigated := true
+                box.set_extend(currentOB.boxId, extend.none)
+                box.set_right(currentOB.boxId, bar_index)
+                box.set_text(currentOB.boxId, '')
+                if hideMitigatedOB
+                    box.delete(currentOB.boxId)
+                else
+                    box.set_bgcolor(currentOB.boxId, color.new(color.gray, 90))
+                    box.set_border_style(currentOB.boxId, line.style_dotted)
+
+            // Cek Mitigasi Bearish OB
+            if not currentOB.isMitigated and not currentOB.isBullish and high >= currentOB.bottom
+                currentOB.isMitigated := true
+                box.set_extend(currentOB.boxId, extend.none)
+                box.set_right(currentOB.boxId, bar_index)
+                box.set_text(currentOB.boxId, '')
+                if hideMitigatedOB
+                    box.delete(currentOB.boxId)
+                else
+                    box.set_bgcolor(currentOB.boxId, color.new(color.gray, 90))
+                    box.set_border_style(currentOB.boxId, line.style_dotted)
+
+        if not currentOB.isMitigated
+            unmitigatedOBCount += 1
+            // Lacak zona terdekat dengan harga saat ini (close)
+            if currentOB.isBullish
+                latestBullIdx := i
+                float dist = close >= currentOB.top ? (close - currentOB.top) : (currentOB.top - close + 1000)
+                if dist < minBullDist
+                    minBullDist := dist
+                    bestBullIdx := i
+            else
+                latestBearIdx := i
+                float dist = currentOB.bottom >= close ? (currentOB.bottom - close) : (close - currentOB.bottom + 1000)
+                if dist < minBearDist
+                    minBearDist := dist
+                    bestBearIdx := i
+
+    // Filter visibilitas berdasarkan pilihan user
+    int targetBull = obDisplayMode == '1 Terbaru (Lilin Paling Baru)' ? latestBullIdx : bestBullIdx
+    int targetBear = obDisplayMode == '1 Terbaru (Lilin Paling Baru)' ? latestBearIdx : bestBearIdx
+
+    if obDisplayMode != 'Semua Zona Aktif'
+        for i = 0 to array.size(orderBlocks) - 1
+            OrderBlock ob = array.get(orderBlocks, i)
+            if not ob.isMitigated
+                if i == targetBull or i == targetBear
+                    box.set_bgcolor(ob.boxId, ob.isBullish ? colorBullOB : colorBearOB)
+                    box.set_border_color(ob.boxId, ob.isBullish ? borderBullOB : borderBearOB)
+                    box.set_extend(ob.boxId, extend.right)
+                    if showOBLabels
+                        box.set_text(ob.boxId, ob.isBullish ? 'Bullish OB (Demand)' : 'Bearish OB (Supply)')
+                        box.set_text_size(ob.boxId, size.tiny)
+                        box.set_text_color(ob.boxId, color.white)
+                        box.set_text_valign(ob.boxId, text.align_center)
+                        box.set_text_halign(ob.boxId, text.align_center)
+                else
+                    box.set_bgcolor(ob.boxId, color.new(color.black, 100))
+                    box.set_border_color(ob.boxId, color.new(color.black, 100))
+                    box.set_extend(ob.boxId, extend.none)
+                    box.set_right(ob.boxId, bar_index)
+                    box.set_text(ob.boxId, '')
+
+while array.size(orderBlocks) > 15
+    OrderBlock oldOB = array.shift(orderBlocks)
+    box.delete(oldOB.boxId)
+
+
+//+------------------------------------------------------------------+
+//|            MODUL 5: FAIR VALUE GAP (FVG / IMBALANCE)             |
+//+------------------------------------------------------------------+
+
+type FVG
+    box   boxId
+    float top
+    float bottom
+    bool  isBullish
+    bool  isMitigated
+
+var fvgList = array.new<FVG>()
+float minFvgDistance = fvgMinTicks * syminfo.mintick
+
+// 1. Bullish FVG
+bool isBullFVG = (low > high[2]) and ((low - high[2]) >= minFvgDistance)
+if showFVG and isBullFVG
+    float topFvg = low
+    float btmFvg = high[2]
+    box b = box.new(bar_index - 1, topFvg, bar_index, btmFvg, bgcolor = colorBullFVG, border_color = color.new(#10b981, 40), border_width = 1, extend = extend.right, text = showFVGLabels ? 'Bullish FVG (Imbalance)' : '', text_size = size.tiny, text_color = color.white, text_valign = text.align_center, text_halign = text.align_center)
+    array.push(fvgList, FVG.new(b, topFvg, btmFvg, true, false))
+
+// 2. Bearish FVG
+bool isBearFVG = (high < low[2]) and ((low[2] - high) >= minFvgDistance)
+if showFVG and isBearFVG
+    float topFvg = low[2]
+    float btmFvg = high
+    box b = box.new(bar_index - 1, topFvg, bar_index, btmFvg, bgcolor = colorBearFVG, border_color = color.new(#ef4444, 40), border_width = 1, extend = extend.right, text = showFVGLabels ? 'Bearish FVG (Imbalance)' : '', text_size = size.tiny, text_color = color.white, text_valign = text.align_center, text_halign = text.align_center)
+    array.push(fvgList, FVG.new(b, topFvg, btmFvg, false, false))
+
+// Pelacakan Penutupan FVG
+int unmitigatedFVGCount = 0
+int bestBullFvgIdx = -1
+float minBullFvgDist = 1e10
+int bestBearFvgIdx = -1
+float minBearFvgDist = 1e10
+
+int latestBullFvgIdx = -1
+int latestBearFvgIdx = -1
+
+if array.size(fvgList) > 0
+    for i = 0 to array.size(fvgList) - 1
+        FVG currentFVG = array.get(fvgList, i)
+        if not currentFVG.isMitigated
+            if currentFVG.isBullish and low <= currentFVG.bottom
+                currentFVG.isMitigated := true
+                box.set_extend(currentFVG.boxId, extend.none)
+                box.set_right(currentFVG.boxId, bar_index)
+                box.set_text(currentFVG.boxId, '')
+                if hideMitigatedFVG
+                    box.delete(currentFVG.boxId)
+                else
+                    box.set_bgcolor(currentFVG.boxId, color.new(color.gray, 92))
+
+            if not currentFVG.isMitigated and not currentFVG.isBullish and high >= currentFVG.top
+                currentFVG.isMitigated := true
+                box.set_extend(currentFVG.boxId, extend.none)
+                box.set_right(currentFVG.boxId, bar_index)
+                box.set_text(currentFVG.boxId, '')
+                if hideMitigatedFVG
+                    box.delete(currentFVG.boxId)
+                else
+                    box.set_bgcolor(currentFVG.boxId, color.new(color.gray, 92))
+
+        if not currentFVG.isMitigated
+            unmitigatedFVGCount += 1
+            if currentFVG.isBullish
+                latestBullFvgIdx := i
+                float dist = close >= currentFVG.top ? (close - currentFVG.top) : (currentFVG.top - close + 1000)
+                if dist < minBullFvgDist
+                    minBullFvgDist := dist
+                    bestBullFvgIdx := i
+            else
+                latestBearFvgIdx := i
+                float dist = currentFVG.bottom >= close ? (currentFVG.bottom - close) : (close - currentFVG.bottom + 1000)
+                if dist < minBearFvgDist
+                    minBearFvgDist := dist
+                    bestBearFvgIdx := i
+
+    // Filter visibilitas FVG berdasarkan pilihan user
+    int targetBullFvg = fvgDisplayMode == '1 Terbaru (Paling Baru)' ? latestBullFvgIdx : bestBullFvgIdx
+    int targetBearFvg = fvgDisplayMode == '1 Terbaru (Paling Baru)' ? latestBearFvgIdx : bestBearFvgIdx
+
+    if fvgDisplayMode != 'Semua Gap Aktif'
+        for i = 0 to array.size(fvgList) - 1
+            FVG fvg = array.get(fvgList, i)
+            if not fvg.isMitigated
+                if (fvgDisplayMode != 'Nonaktifkan') and (i == targetBullFvg or i == targetBearFvg)
+                    box.set_bgcolor(fvg.boxId, fvg.isBullish ? colorBullFVG : colorBearFVG)
+                    box.set_border_color(fvg.boxId, fvg.isBullish ? color.new(#10b981, 40) : color.new(#ef4444, 40))
+                    box.set_extend(fvg.boxId, extend.right)
+                    if showFVGLabels
+                        box.set_text(fvg.boxId, fvg.isBullish ? 'Bullish FVG (Imbalance)' : 'Bearish FVG (Imbalance)')
+                        box.set_text_size(fvg.boxId, size.tiny)
+                        box.set_text_color(fvg.boxId, color.white)
+                        box.set_text_valign(fvg.boxId, text.align_center)
+                        box.set_text_halign(fvg.boxId, text.align_center)
+                else
+                    box.set_bgcolor(fvg.boxId, color.new(color.black, 100))
+                    box.set_border_color(fvg.boxId, color.new(color.black, 100))
+                    box.set_extend(fvg.boxId, extend.none)
+                    box.set_right(fvg.boxId, bar_index)
+                    box.set_text(fvg.boxId, '')
+
+while array.size(fvgList) > 15
+    FVG oldFvg = array.shift(fvgList)
+    box.delete(oldFvg.boxId)
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 6: 9 POLA CANDLESTICK KONFIRMASI (BULLISH & BEARISH)   |
+//+------------------------------------------------------------------+
+
+// Geometri Lilin
+float cRange    = high - low
+float cBody     = math.abs(close - open)
+float lowerWick = math.min(open, close) - low
+float upperWick = high - math.max(open, close)
+bool  isGreen   = close > open
+bool  isRed     = close < open
+float atr14     = ta.atr(14)
+bool  validSize = cRange >= (syminfo.mintick * 4)
+
+// -------------------------------------------------------------
+// A. 9 MACAM POLA KONFIRMASI / REJECTION BULLISH :
+// 1. Hammer (ekor bawah panjang >= 1.8x body, body kecil di atas, rejection harga bawah)
+bool isBullHammer = validSize and (lowerWick >= 1.8 * cBody) and (upperWick <= cBody * 0.8) and (close >= low + cRange * 0.55)
+
+// 2. Pin Bar Bullish (ekor bawah panjang >= 60% range, body kecil di area atas)
+bool isBullPinBar = validSize and (lowerWick >= 0.60 * cRange) and (math.min(open, close) >= low + cRange * 0.50)
+
+// 3. Bullish Engulfing (candle hijau menelan body candle merah sebelumnya)
+bool isBullEngulf = validSize and isGreen and isRed[1] and (close >= open[1]) and (open <= close[1]) and (cBody >= cBody[1] * 0.95)
+
+// 4. Morning Star (3 candle: merah -> body kecil -> hijau kuat tutup > 50% candle merah)
+bool isMorningStar = (cRange[2] >= syminfo.mintick * 4) and isRed[2] and (cBody[1] <= cBody[2] * 0.55) and isGreen and (close >= (open[2] + close[2]) / 2)
+
+// 5. Piercing Line (candle hijau buka di bawah/dekat close merah, tutup > 50% body merah)
+bool isPiercingLine = validSize and isRed[1] and isGreen and (open <= close[1] * 1.0005) and (close > (open[1] + close[1]) / 2) and (close < open[1])
+
+// 6. Three White Soldiers (3 candle hijau berturut-turut dengan penutupan semakin tinggi)
+bool isThreeWhiteSoldiers = isGreen and isGreen[1] and isGreen[2] and (close > close[1]) and (close[1] > close[2]) and (cBody > cRange * 0.35) and (cBody[1] > cRange[1] * 0.35)
+
+// 7. Doji Rejection Bullish (body sangat kecil <= 18% range, ekor bawah panjang >= 50% range)
+bool isBullDojiRejection = validSize and (cBody <= cRange * 0.18) and (lowerWick >= cRange * 0.50)
+
+// 8. Bullish Inside Bar (candle [1] di dalam range [2], candle saat ini hijau breakout ke atas)
+bool isBullInsideBar = (high[1] <= high[2]) and (low[1] >= low[2]) and isGreen and (close > high[1])
+
+// 9. Two Candle Rejection Bullish (ekor bawah panjang pada candle sebelumnya/saat ini, diikuti penutupan hijau kuat)
+bool isBullTwoCandleRejection = (lowerWick[1] >= cRange[1] * 0.45 or lowerWick >= cRange * 0.45) and isGreen and (close > close[1])
+
+// Evaluasi Nama Pola Bullish
+string bullPatternName = ''
+if isBullEngulf
+    bullPatternName := 'Bullish Engulfing'
+else if isMorningStar
+    bullPatternName := 'Morning Star'
+else if isThreeWhiteSoldiers
+    bullPatternName := 'Three White Soldiers'
+else if isPiercingLine
+    bullPatternName := 'Piercing Line'
+else if isBullHammer
+    bullPatternName := 'Hammer'
+else if isBullPinBar
+    bullPatternName := 'Pin Bar Bullish'
+else if isBullDojiRejection
+    bullPatternName := 'Doji Rejection'
+else if isBullInsideBar
+    bullPatternName := 'Bullish Inside Bar'
+else if isBullTwoCandleRejection
+    bullPatternName := 'Two Candle Rejection'
+
+bool hasBullPattern = bullPatternName != ''
+
+// -------------------------------------------------------------
+// B. 9 MACAM POLA KONFIRMASI / REJECTION BEARISH :
+// 1. Shooting Star (ekor atas panjang >= 1.8x body, body kecil di bawah, rejection harga atas)
+bool isBearShootingStar = validSize and (upperWick >= 1.8 * cBody) and (lowerWick <= cBody * 0.8) and (close <= high - cRange * 0.55)
+
+// 2. Pin Bar Bearish (ekor atas panjang >= 60% range, body kecil di area bawah)
+bool isBearPinBar = validSize and (upperWick >= 0.60 * cRange) and (math.max(open, close) <= low + cRange * 0.50)
+
+// 3. Bearish Engulfing (candle merah menelan body candle hijau sebelumnya)
+bool isBearEngulf = validSize and isRed and isGreen[1] and (close <= open[1]) and (open >= close[1]) and (cBody >= cBody[1] * 0.95)
+
+// 4. Dark Cloud Cover (candle merah buka di atas/dekat close hijau, tutup < 50% body hijau)
+bool isDarkCloudCover = validSize and isGreen[1] and isRed and (open >= close[1] * 0.9995) and (close < (open[1] + close[1]) / 2) and (close > open[1])
+
+// 5. Evening Star (3 candle: hijau -> body kecil -> merah kuat tutup < 50% candle hijau)
+bool isEveningStar = (cRange[2] >= syminfo.mintick * 4) and isGreen[2] and (cBody[1] <= cBody[2] * 0.55) and isRed and (close <= (open[2] + close[2]) / 2)
+
+// 6. Three Black Crows (3 candle merah berturut-turut dengan penutupan semakin rendah)
+bool isThreeBlackCrows = isRed and isRed[1] and isRed[2] and (close < close[1]) and (close[1] < close[2]) and (cBody > cRange * 0.35) and (cBody[1] > cRange[1] * 0.35)
+
+// 7. Doji Rejection Bearish (body sangat kecil <= 18% range, ekor atas panjang >= 50% range)
+bool isBearDojiRejection = validSize and (cBody <= cRange * 0.18) and (upperWick >= cRange * 0.50)
+
+// 8. Bearish Inside Bar (candle [1] di dalam range [2], candle saat ini merah breakdown ke bawah)
+bool isBearInsideBar = (high[1] <= high[2]) and (low[1] >= low[2]) and isRed and (close < low[1])
+
+// 9. Two Candle Rejection Bearish (ekor atas panjang pada candle sebelumnya/saat ini, diikuti penutupan merah kuat)
+bool isBearTwoCandleRejection = (upperWick[1] >= cRange[1] * 0.45 or upperWick >= cRange * 0.45) and isRed and (close < close[1])
+
+// Evaluasi Nama Pola Bearish
+string bearPatternName = ''
+if isBearEngulf
+    bearPatternName := 'Bearish Engulfing'
+else if isEveningStar
+    bearPatternName := 'Evening Star'
+else if isThreeBlackCrows
+    bearPatternName := 'Three Black Crows'
+else if isDarkCloudCover
+    bearPatternName := 'Dark Cloud Cover'
+else if isBearShootingStar
+    bearPatternName := 'Shooting Star'
+else if isBearPinBar
+    bearPatternName := 'Pin Bar Bearish'
+else if isBearDojiRejection
+    bearPatternName := 'Doji Rejection'
+else if isBearInsideBar
+    bearPatternName := 'Bearish Inside Bar'
+else if isBearTwoCandleRejection
+    bearPatternName := 'Two Candle Rejection'
+
+bool hasBearPattern = bearPatternName != ''
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 7: DETEKSI PULLBACK TRIPLE EMA & CONFLUENCE ZONA        |
+//+------------------------------------------------------------------+
+
+// Rentang Zona EMA 8 & 21
+float emaTop = math.max(ema8, ema21)
+float emaBtm = math.min(ema8, ema21)
+
+// 1. Pullback Zone Detection:
+// - BUY Pullback: Lilin sedang/telah terkoreksi menyentuh area EMA 8 / EMA 21 (namun tetap di atas EMA 125)
+bool isPullbackBuyZone = (low <= emaTop * 1.0015) and (math.min(open, close) >= ema125) and (low >= ema125 * 0.9980)
+
+// - SELL Pullback: Lilin sedang/telah terkoreksi menyentuh area EMA 8 / EMA 21 (namun tetap di bawah EMA 125)
+bool isPullbackSellZone = (high >= emaBtm * 0.9985) and (math.max(open, close) <= ema125) and (high <= ema125 * 1.0020)
+
+// 2. Deteksi Sentuhan Zona SMC (S/R, OB, FVG, Golden Zone)
+bool touchDemandOB = false
+if array.size(orderBlocks) > 0
+    for i = 0 to array.size(orderBlocks) - 1
+        OrderBlock ob = array.get(orderBlocks, i)
+        if not ob.isMitigated and ob.isBullish
+            if low <= ob.top and high >= ob.bottom
+                touchDemandOB := true
+                break
+
+bool touchBullFVG = false
+if array.size(fvgList) > 0
+    for i = 0 to array.size(fvgList) - 1
+        FVG f = array.get(fvgList, i)
+        if not f.isMitigated and f.isBullish
+            if low <= f.top and high >= f.bottom
+                touchBullFVG := true
+                break
+
+bool nearMajorSup = not na(majorSupport) and (low <= majorSupport * 1.0015) and (close >= majorSupport * 0.9980)
+bool nearMinorSup = not na(minorSupport) and (low <= minorSupport * 1.0010) and (close >= minorSupport * 0.9985)
+bool bullZoneConfluence = touchDemandOB or touchBullFVG or inGoldenZone or nearMajorSup or nearMinorSup
+
+bool touchSupplyOB = false
+if array.size(orderBlocks) > 0
+    for i = 0 to array.size(orderBlocks) - 1
+        OrderBlock ob = array.get(orderBlocks, i)
+        if not ob.isMitigated and not ob.isBullish
+            if high >= ob.bottom and low <= ob.top
+                touchSupplyOB := true
+                break
+
+bool touchBearFVG = false
+if array.size(fvgList) > 0
+    for i = 0 to array.size(fvgList) - 1
+        FVG f = array.get(fvgList, i)
+        if not f.isMitigated and not f.isBullish
+            if high >= f.bottom and low <= f.top
+                touchBearFVG := true
+                break
+
+bool nearMajorRes = not na(majorResistance) and (high >= majorResistance * 0.9985) and (close <= majorResistance * 1.0020)
+bool nearMinorRes = not na(minorResistance) and (high >= minorResistance * 0.9990) and (close <= minorResistance * 1.0015)
+bool bearZoneConfluence = touchSupplyOB or touchBearFVG or inGoldenZone or nearMajorRes or nearMinorRes
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 8: FILTER KEAMANAN (WASPADAI SINYAL FALSE DALAM EMA)    |
+//+------------------------------------------------------------------+
+
+// 1. EMA 8 dan 21 sering bolak-balik (Chop / Sideways)
+bool emaCrossed = ta.cross(ema8, ema21)
+int emaCrossCount = 0
+for k = 0 to 14
+    if emaCrossed[k]
+        emaCrossCount += 1
+
+bool isEMASideways = (emaCrossCount >= 2) or (math.abs(ema8 - ema21) < (atr14 * 0.12))
+
+// 2. Harga bolak-balik menembus EMA 125 (Ranging di sekitar EMA 125)
+bool closeCross125 = ta.cross(close, ema125)
+int cross125Count = 0
+for k = 0 to 19
+    if closeCross125[k]
+        cross125Count += 1
+
+bool isWhipsaw125 = cross125Count >= 2
+
+// 3. Candle sudah terlalu jauh dari EMA (Overextended Risk)
+bool isOverextendedBuy  = (close - ema8) > (atr14 * maxAtrExtension)
+bool isOverextendedSell = (ema8 - close) > (atr14 * maxAtrExtension)
+
+// 4. Struktur Market HH-HL & LH-LL
+bool isBullStructure = (marketTrend == 1) or (lastSwingStatus == 'HH') or (lastSwingStatus == 'HL') or (not na(lastSwingLow) and not na(prevSwingLow) and lastSwingLow >= prevSwingLow)
+bool isBearStructure = (marketTrend == -1) or (lastSwingStatus == 'LH') or (lastSwingStatus == 'LL') or (not na(lastSwingHigh) and not na(prevSwingHigh) and lastSwingHigh <= prevSwingHigh)
+
+
+//+------------------------------------------------------------------+
+//|    MODUL 9: EKSEKUSI SINYAL TRADING (BUY & SELL ENTRY SYSTEM)    |
+//+------------------------------------------------------------------+
+
+// Timing Sinyal (Closed Bar vs Realtime)
+bool triggerReady = (sigMode == 'Selesai Candle (Closed Bar - Non Repainting)') ? barstate.isconfirmed : true
+
+// Filter Anti-Spam (Jeda Minimal 3 Lilin)
+var int lastBuyBar  = -100
+var int lastSellBar = -100
+int minSignalCooldown = 3
+
+// --- ATURAN SETUP BUY LENGKAP ---
+// 1. Harga di atas EMA 125 & pullback tetap bertahan di atas EMA 125
+// 2. EMA 8 berada di atas EMA 21
+// 3. Mengalami pullback ke area EMA 8 / EMA 21
+// 4. Muncul salah satu dari 9 lilin konfirmasi bullish
+// 5. Lolos filter keamanan (bukan sideways, bukan whipsaw 125, tidak overextended, struktur HH-HL)
+// 3. Mengalami pullback ke area EMA 8 / EMA 21 (pada lilin saat ini atau 1-2 lilin sebelumnya)
+bool condEmaBuyTrend    = (close > ema125) and (ema8 > ema21)
+bool condBuyPullback    = isPullbackBuyZone or isPullbackBuyZone[1] or isPullbackBuyZone[2]
+bool condBuyFilterPass  = (not filterChop or not isEMASideways) and (not filter125Whip or not isWhipsaw125) and (not filterOverextended or not isOverextendedBuy) and (not filterStructure or isBullStructure)
+bool condBuyConfluence  = (sigConfluence == 'Triple EMA + Candle Pattern (Pullback)') ? true : bullZoneConfluence
+
+bool condBuy = triggerReady and condEmaBuyTrend and condBuyPullback and hasBullPattern and condBuyFilterPass and condBuyConfluence and (bar_index - lastBuyBar >= minSignalCooldown)
+
+// --- ATURAN SETUP SELL LENGKAP ---
+// 1. Harga di bawah EMA 125 & pullback tetap berada di bawah EMA 125
+// 2. EMA 8 berada di bawah EMA 21
+// 3. Mengalami pullback ke area EMA 8 / EMA 21 (pada lilin saat ini atau 1-2 lilin sebelumnya)
+// 4. Muncul salah satu dari 9 lilin konfirmasi bearish
+// 5. Lolos filter keamanan (bukan sideways, bukan whipsaw 125, tidak overextended, struktur LH-LL)
+bool condEmaSellTrend   = (close < ema125) and (ema8 < ema21)
+bool condSellPullback   = isPullbackSellZone or isPullbackSellZone[1] or isPullbackSellZone[2]
+bool condSellFilterPass = (not filterChop or not isEMASideways) and (not filter125Whip or not isWhipsaw125) and (not filterOverextended or not isOverextendedSell) and (not filterStructure or isBearStructure)
+bool condSellConfluence = (sigConfluence == 'Triple EMA + Candle Pattern (Pullback)') ? true : bearZoneConfluence
+
+bool condSell = triggerReady and condEmaSellTrend and condSellPullback and hasBearPattern and condSellFilterPass and condSellConfluence and (bar_index - lastSellBar >= minSignalCooldown)
+
+bool buySignal  = condBuy and not condSell
+bool sellSignal = condSell and not condBuy
+
+var string activePatternText = ''
+
+if buySignal
+    lastBuyBar := bar_index
+    activePatternText := bullPatternName
+if sellSignal
+    lastSellBar := bar_index
+    activePatternText := bearPatternName
+
+// Plot Sinyal di Chart (Segitiga Bersih Tanpa Tulisan Teks Sesuai Permintaan)
+plotshape(showSignals and showBuySignal and buySignal, title = 'Triple EMA BUY Signal', style = shape.triangleup, location = location.belowbar, color = color.new(#10b981, 0), size = size.small)
+plotshape(showSignals and showSellSignal and sellSignal, title = 'Triple EMA SELL Signal', style = shape.triangledown, location = location.abovebar, color = color.new(#ef4444, 0), size = size.small)
+
+// Label Keterangan Pola Candle Konfirmasi
+if showSignals and showPatternLabels
+    if buySignal
+        label.new(bar_index, low - (atr14 * 0.4), bullPatternName, color = color.new(#065f46, 20), textcolor = #a7f3d0, style = label.style_label_up, size = size.tiny)
+    if sellSignal
+        label.new(bar_index, high + (atr14 * 0.4), bearPatternName, color = color.new(#991b1b, 20), textcolor = #fecaca, style = label.style_label_down, size = size.tiny)
+
+// Tracking Status Sinyal Terkini untuk Dashboard HUD
+var string signalHUDStatus = 'Menunggu'
+var color  signalHUDColor  = color.new(#94a3b8, 0)
+var int    signalHUDBar    = na
+
+if buySignal
+    signalHUDStatus := 'BUY: ' + bullPatternName
+    signalHUDColor  := #10b981
+    signalHUDBar    := bar_index
+else if sellSignal
+    signalHUDStatus := 'SELL: ' + bearPatternName
+    signalHUDColor  := #ef4444
+    signalHUDBar    := bar_index
+else if not na(signalHUDBar) and (bar_index - signalHUDBar > 20)
+    signalHUDStatus := 'Menunggu'
+    signalHUDColor  := color.new(#94a3b8, 0)
+
+
+//+------------------------------------------------------------------+
+//|            MODUL 10: ON-CHART HUD DASHBOARD TABLE                |
+//+------------------------------------------------------------------+
+
+var table hudTable = na
+
+string dashPos = dashPosition == 'Top Left' ? position.top_left : dashPosition == 'Bottom Left' ? position.bottom_left : dashPosition == 'Bottom Right' ? position.bottom_right : position.top_right
+
+if barstate.islast and showDashboard
+    table.delete(hudTable)
+    hudTable := table.new(dashPos, 2, 9, bgcolor = dashBgColor, border_color = color.new(#334155, 0), border_width = 1)
+
+    // Header Dashboard
+    table.cell(hudTable, 0, 0, 'SMC & TRIPLE EMA MASTER', bgcolor = color.new(#0f172a, 0), text_color = #f59e0b, text_size = size.small)
+    table.cell(hudTable, 1, 0, syminfo.ticker + ' [' + timeframe.period + ']', bgcolor = color.new(#0f172a, 0), text_color = #38bdf8, text_size = size.small)
+
+    // Baris 1: Status Triple EMA (Trend Baseline)
+    string emaTrendText = isEMASideways ? 'SIDEWAYS CHOP' : (close > ema125 and ema8 > ema21) ? 'BULLISH (8 > 21 > 125)' : (close < ema125 and ema8 < ema21) ? 'BEARISH (8 < 21 < 125)' : 'TRANSITION'
+    color  emaTrendColor = isEMASideways ? #f59e0b : (close > ema125 and ema8 > ema21) ? #10b981 : (close < ema125 and ema8 < ema21) ? #ef4444 : #94a3b8
+    table.cell(hudTable, 0, 1, 'Triple EMA Trend:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 1, emaTrendText, text_color = emaTrendColor, text_size = size.small)
+
+    // Baris 2: Status Struktur Pasar
+    color  structColor = (marketTrend == 1) ? color.green : (marketTrend == -1) ? color.red : color.gray
+    string structText  = (lastStructName != 'None') ? lastStructName : (marketTrend == 1 ? 'BULLISH' : 'BEARISH')
+    table.cell(hudTable, 0, 2, 'Market Structure:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 2, structText + (lastSwingStatus != 'None' ? ' (' + lastSwingStatus + ')' : ''), text_color = structColor, text_size = size.small)
+
+    // Baris 3: Resistance Terdekat / Terkuat
+    float  distRes = not na(majorResistance) ? (majorResistance - close) / syminfo.mintick / 10 : 0.0
+    string resStr  = not na(majorResistance) ? str.tostring(majorResistance, '#.##') + ' (+' + str.tostring(distRes, '#.#') + ' pips)' : 'Scanning...'
+    table.cell(hudTable, 0, 3, 'Major Resistance:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 3, resStr, text_color = #f43f5e, text_size = size.small)
+
+    // Baris 4: Support Terdekat / Terkuat
+    float  distSup = not na(majorSupport) ? (close - majorSupport) / syminfo.mintick / 10 : 0.0
+    string supStr  = not na(majorSupport) ? str.tostring(majorSupport, '#.##') + ' (-' + str.tostring(distSup, '#.#') + ' pips)' : 'Scanning...'
+    table.cell(hudTable, 0, 4, 'Major Support:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 4, supStr, text_color = #10b981, text_size = size.small)
+
+    // Baris 5: Fibo Golden Zone Status
+    string fiboText = inGoldenZone ? 'IN GOLDEN POCKET! (OTE)' : (close > nz(fiboHighVal) - fiboDiff * 0.5 ? 'Premium Zone' : 'Discount Zone')
+    color  fiboClr  = inGoldenZone ? #eab308 : (close > nz(fiboHighVal) - fiboDiff * 0.5 ? #f43f5e : #10b981)
+    table.cell(hudTable, 0, 5, 'Fibonacci Zone:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 5, fiboText, text_color = fiboClr, text_size = size.small)
+
+    // Baris 6: Unmitigated OBs & FVGs
+    table.cell(hudTable, 0, 6, 'Active OBs / FVGs:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 6, str.tostring(unmitigatedOBCount) + ' OBs | ' + str.tostring(unmitigatedFVGCount) + ' FVGs', text_color = #38bdf8, text_size = size.small)
+
+    // Baris 7: False Signal Watchdog
+    string watchdogStr = isEMASideways ? 'Warning: EMA Sideways' : isWhipsaw125 ? 'Warning: Whipsaw EMA 125' : (isOverextendedBuy or isOverextendedSell) ? 'Warning: Overextended' : 'Clear (No Warnings)'
+    color  watchdogClr = (isEMASideways or isWhipsaw125 or isOverextendedBuy or isOverextendedSell) ? #f59e0b : #10b981
+    table.cell(hudTable, 0, 7, 'Market Safety:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 7, watchdogStr, text_color = watchdogClr, text_size = size.small)
+
+    // Baris 8: Sinyal Konfirmasi Terkini (BUY / SELL / Menunggu)
+    table.cell(hudTable, 0, 8, 'Trade Signal:', text_color = dashTextColor, text_size = size.small)
+    table.cell(hudTable, 1, 8, signalHUDStatus, text_color = signalHUDColor, text_size = size.small)
+
+
+//+------------------------------------------------------------------+
+//|            MODUL 11: SISTEM NOTIFIKASI & ALERTS                  |
+//+------------------------------------------------------------------+
+
+// 1. Alert Break of Structure & Change of Character
+alertcondition(bullBreak and marketTrend == 1, 'Bullish BOS Alert', 'SMC Alert: Bullish BOS Terkonfirmasi menembus Swing High!')
+alertcondition(bullBreak and marketTrend != 1, 'Bullish CHoCH Alert', 'SMC Alert: Bullish CHoCH Reversal Terkonfirmasi!')
+alertcondition(bearBreak and marketTrend == -1, 'Bearish BOS Alert', 'SMC Alert: Bearish BOS Terkonfirmasi menembus Swing Low!')
+alertcondition(bearBreak and marketTrend != -1, 'Bearish CHoCH Alert', 'SMC Alert: Bearish CHoCH Reversal Terkonfirmasi!')
+
+// 2. Alert Sentuhan S/R Kuat
+alertcondition(ta.cross(close, majorResistance), 'Touch Major Resistance', 'S/R Alert: Harga menyentuh Major Resistance Terkuat!')
+alertcondition(ta.cross(close, majorSupport), 'Touch Major Support', 'S/R Alert: Harga menyentuh Major Support Terkuat!')
+
+// 3. Alert Masuk Golden Zone Fibo
+alertcondition(inGoldenZone and not inGoldenZone[1], 'Enter Golden Zone', 'Fibo Alert: Harga memasuki Fibonacci Golden Pocket (0.50 - 0.65 OTE)!')
+
+// 4. Alert Sinyal BUY & SELL Konfirmasi
+alertcondition(buySignal, 'Triple EMA BUY Signal', '🟢 Triple EMA BUY Signal Terkonfirmasi (Pullback Selesai)! Ticker: {{ticker}}, Harga: {{close}}')
+alertcondition(sellSignal, 'Triple EMA SELL Signal', '🔴 Triple EMA SELL Signal Terkonfirmasi (Pullback Selesai)! Ticker: {{ticker}}, Harga: {{close}}')

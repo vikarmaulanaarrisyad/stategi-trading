@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Panduan & SOP Trading: Institutional SMC & Triple EMA Master</title>
+<style>
+  @page {
+    size: A4;
+    margin: 15mm 15mm 18mm 15mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.55;
+    font-size: 13px;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Header Cover */
+  .cover {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    border-left: 6px solid #00e5ff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  .cover-badge {
+    display: inline-block;
+    background: rgba(0, 229, 255, 0.15);
+    color: #00e5ff;
+    border: 1px solid #00e5ff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .cover h1 {
+    font-size: 24px;
+    margin: 0 0 8px 0;
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .cover p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+  }
+
+  .cover-meta {
+    margin-top: 15px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #cbd5e1;
+  }
+
+  /* Headings */
+  h2 {
+    font-size: 17px;
+    color: #0f172a;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 6px;
+    margin-top: 25px;
+    margin-bottom: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  h2::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: #0284c7;
+    border-radius: 2px;
+  }
+
+  h3 {
+    font-size: 14px;
+    color: #1e293b;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0 0 10px 0;
+  }
+
+  /* Cards & Callouts */
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .card-buy {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 5px solid #16a34a;
+  }
+
+  .card-sell {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 5px solid #dc2626;
+  }
+
+  .card-alert {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 5px solid #d97706;
+  }
+
+  /* Step Badges */
+  .step-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 10px 0;
+  }
+
+  .step-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+  }
+
+  .step-num {
+    background: #0f172a;
+    color: #ffffff;
+    font-weight: 700;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-buy .step-num {
+    background: #16a34a;
+  }
+
+  .step-sell .step-num {
+    background: #dc2626;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    margin-bottom: 14px;
+    font-size: 11.5px;
+  }
+
+  th, td {
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: #0f172a;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10.5px;
+  }
+
+  .badge-bull {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+  }
+
+  .badge-bear {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+  }
+
+  .badge-ema {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+  }
+
+  /* Dashboard Mockup Table */
+  .hud-mockup {
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    margin: 12px 0;
+    border: 1px solid #334155;
+  }
+
+  .hud-mockup table {
+    margin: 0;
+    border: none;
+  }
+
+  .hud-mockup th, .hud-mockup td {
+    border: 1px solid #1e293b;
+    padding: 5px 8px;
+    color: #f8fafc;
+  }
+
+  .hud-mockup th {
+    background: #020617;
+    color: #f59e0b;
+  }
+
+  .text-green { color: #10b981; font-weight: bold; }
+  .text-red { color: #f43f5e; font-weight: bold; }
+  .text-yellow { color: #eab308; font-weight: bold; }
+  .text-blue { color: #38bdf8; font-weight: bold; }
+
+  /* Page break rules */
+  .page-break {
+    page-break-before: always;
+  }
+
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  .footer-note {
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 30px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- COVER HEADER -->
+  <div class="cover">
+    <div class="cover-badge">STANDARD OPERATING PROCEDURE (SOP)</div>
+    <h1>Institutional SMC & Triple EMA Master</h1>
+    <p>Panduan Praktis Eksekusi Entry BUY & SELL dengan Konfirmasi 9 Pola Candlestick & Filter Anti-False Signal</p>
+    <div class="cover-meta">
+      <span>Skrip: Institutional_SMC_SR_Master.pine</span>
+      <span>Pasar: XAUUSD, Forex, Crypto & Indeks</span>
+      <span>Versi Pine Script: v6</span>
+    </div>
+  </div>
+
+  <!-- SECTION 1: ARSITEKTUR STRATEGI -->
+  <div class="no-break">
+    <h2>1. Arsitektur Strategi: Triple EMA (8, 21, 125)</h2>
+    <p>Strategi ini menggabungkan <strong>3 lapis Exponential Moving Average (EMA)</strong> yang dirancang untuk menyaring tren pasar institusional, menangkap momentum, dan mendeteksi momentum pullback pada harga diskon/premium:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 22%;">Komponen EMA</th>
+          <th style="width: 18%;">Warna Chart</th>
+          <th>Fungsi Utama & Logika Trading</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>EMA 8 (Fast)</strong></td>
+          <td><span class="badge badge-ema">Cyan (#00e5ff)</span></td>
+          <td>Mengukur momentum jangka sangat pendek. Lilin pullback yang menyentuh EMA 8 menunjukkan tren yang sangat kuat.</td>
+        </tr>
+        <tr>
+          <td><strong>EMA 21 (Medium)</strong></td>
+          <td><span class="badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047;">Kuning (#ffd600)</span></td>
+          <td>Level dinamis support/resistance utama. Area antara <strong>EMA 8 dan EMA 21</strong> adalah <em>Pullback Value Pocket</em> (area ideal menunggu lilin konfirmasi).</td>
+        </tr>
+        <tr>
+          <td><strong>EMA 125 (Baseline)</strong></td>
+          <td><span class="badge" style="background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe;">Ungu (#9c27b0)</span></td>
+          <td><strong>Filter Arah Utama (Market Filter)</strong>. Hanya boleh BUY jika harga di atas EMA 125. Hanya boleh SELL jika harga di bawah EMA 125.</td>
+        </tr>
+        <tr>
+          <td><strong>Ribbon Cloud (8-21)</strong></td>
+          <td>Cyan / Merah</td>
+          <td>Zona pita warna antara EMA 8 dan 21. Cyan menandakan akselerasi bullish, Merah menandakan akselerasi bearish.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 2: SOP ENTRY BUY -->
+  <div class="no-break">
+    <h2>2. SOP Eksekusi SETUP BUY (Beli)</h2>
+    <div class="card card-buy">
+      <h3 style="color: #15803d; margin-top: 0;">Syarat Wajib Terpenuhi (Rule of 5 for BUY):</h3>
+      <ul class="step-list step-buy">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div><strong>Filter Tren Utama:</strong> Harga saat ini (close) berada di atas <strong>EMA 125</strong>. Tidak boleh mencari posisi Buy jika harga berada di bawah EMA 125.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div><strong>Alignment Momentum:</strong> Garis <strong>EMA 8 berada di atas EMA 21</strong> (Cloud Ribbon berwarna Cyan).</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div><strong>Struktur Pasar Valid:</strong> Membentuk struktur <strong>Higher High (HH) & Higher Low (HL)</strong> atau Break of Structure (BOS) Bullish pada indikator.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">4</div>
+          <div><strong>Pullback ke Area Diskon:</strong> Lilin mengalami koreksi turun menuju area di antara <strong>EMA 8 dan EMA 21</strong>, namun ekor lilin tetap bertahan di atas EMA 125.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">5</div>
+          <div><strong>Lilin Konfirmasi Bullish:</strong> Lilin yang menguji area EMA ditutup membentuk salah satu dari <strong>9 pola lilin konfirmasi bullish</strong> (Hammer, Engulfing, Morning Star, dll). Label hijau <code>BUY</code> muncul di chart!</div>
+        </li>
+      </ul>
+      <div style="background: rgba(22, 163, 74, 0.1); padding: 8px 12px; border-radius: 6px; font-size: 11.5px; border-left: 3px solid #16a34a;">
+        <strong>Parameter Order:</strong><br>
+        • <strong>Entry:</strong> Pada pembukaan lilin tepat setelah sinyal BUY muncul (Closed Candle).<br>
+        • <strong>Stop Loss (SL):</strong> Di bawah ujung terendah (Low) lilin konfirmasi / di bawah EMA 21 / EMA 125 (buffer 5-10 pips).<br>
+        • <strong>Take Profit (TP):</strong> TP1 di Minor Resistance; TP2 di Major Resistance (Target RRR minimal 1:2).
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: SOP ENTRY SELL -->
+  <div class="no-break">
+    <h2>3. SOP Eksekusi SETUP SELL (Jual)</h2>
+    <div class="card card-sell">
+      <h3 style="color: #b91c1c; margin-top: 0;">Syarat Wajib Terpenuhi (Rule of 5 for SELL):</h3>
+      <ul class="step-list step-sell">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div><strong>Filter Tren Utama:</strong> Harga saat ini (close) berada di bawah <strong>EMA 125</strong>. Tidak boleh mencari posisi Sell jika harga berada di atas EMA 125.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div><strong>Alignment Momentum:</strong> Garis <strong>EMA 8 berada di bawah EMA 21</strong> (Cloud Ribbon berwarna Merah).</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div><strong>Struktur Pasar Valid:</strong> Membentuk struktur <strong>Lower High (LH) & Lower Low (LL)</strong> atau Break of Structure (BOS) Bearish pada indikator.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">4</div>
+          <div><strong>Pullback ke Area Premium:</strong> Lilin mengalami koreksi naik menuju area di antara <strong>EMA 8 dan EMA 21</strong>, namun ekor lilin tetap tertahan di bawah EMA 125.</div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">5</div>
+          <div><strong>Lilin Konfirmasi Bearish:</strong> Lilin yang menguji area EMA ditutup membentuk salah satu dari <strong>9 pola lilin konfirmasi bearish</strong> (Shooting Star, Engulfing, Evening Star, dll). Label merah <code>SELL</code> muncul di chart!</div>
+        </li>
+      </ul>
+      <div style="background: rgba(220, 38, 38, 0.1); padding: 8px 12px; border-radius: 6px; font-size: 11.5px; border-left: 3px solid #dc2626;">
+        <strong>Parameter Order:</strong><br>
+        • <strong>Entry:</strong> Pada pembukaan lilin tepat setelah sinyal SELL muncul (Closed Candle).<br>
+        • <strong>Stop Loss (SL):</strong> Di atas ujung tertinggi (High) lilin konfirmasi / di atas EMA 21 / EMA 125 (buffer 5-10 pips).<br>
+        • <strong>Take Profit (TP):</strong> TP1 di Minor Support; TP2 di Major Support (Target RRR minimal 1:2).
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 4: 9 POLA CANDLESTICK KONFIRMASI -->
+  <h2>4. Katalog 9 Pola Candlestick Konfirmasi (Trigger System)</h2>
+  <p>Indikator secara otomatis mendeteksi geometri lilin saat menyentuh zona EMA 8/21. Berikut adalah logika dan makna institusional dari 9 pola bullish dan 9 pola bearish:</p>
+
+  <h3>A. 9 Pola Konfirmasi Bullish (Rejection & Momentum Naik)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Nama Pola Lilin</th>
+        <th style="width: 35%;">Karakter Geometri</th>
+        <th>Makna Institusional & Entry</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Hammer</strong></td>
+        <td>Ekor bawah panjang (&ge; 1.8x body), body kecil di ujung atas, ekor atas minim.</td>
+        <td>Penolakan keras terhadap harga rendah di area EMA. Buyer mulai masuk agresif.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Pin Bar Bullish</strong></td>
+        <td>Ekor bawah sangat dominan (&ge; 60% total rentang candle).</td>
+        <td>Likuiditas di bawah level support/EMA terserap habis oleh pembeli institusi.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Bullish Engulfing</strong></td>
+        <td>Lilin hijau besar yang body-nya menelan seluruh body lilin merah sebelumnya.</td>
+        <td>Pembalikan momentum instan. Tekanan beli mendominasi total seller.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Morning Star</strong></td>
+        <td>Formasi 3 lilin: Merah besar &rarr; Lilin kecil/Doji di EMA &rarr; Hijau kuat (&gt; 50% lilin 1).</td>
+        <td>Pelemahan tekanan jual diikuti oleh inisiasi tren naik baru.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Piercing Line</strong></td>
+        <td>Lilin hijau buka di dekat low merah lalu ditutup menembus &gt; 50% body lilin merah.</td>
+        <td>Kekuatan pembeli berhasil menembus separuh benteng pertahanan penjual.</td>
+      </tr>
+      <tr>
+        <td><strong>6. Three White Soldiers</strong></td>
+        <td>3 lilin hijau berturut-turut dengan penutupan semakin tinggi dan body proporsional.</td>
+        <td>Akumulasi berkelanjutan. Konfirmasi tren bullish sangat kuat.</td>
+      </tr>
+      <tr>
+        <td><strong>7. Doji Rejection</strong></td>
+        <td>Body lilin sangat tipis (&le; 18% range) dengan ekor bawah panjang (&ge; 50% range).</td>
+        <td>Kondisi keraguan yang berakhir dengan penolakan harga bawah (rejection).</td>
+      </tr>
+      <tr>
+        <td><strong>8. Bullish Inside Bar</strong></td>
+        <td>Lilin berada dalam rentang lilin induk sebelumnya, lalu breakout hijau ke atas.</td>
+        <td>Konsolidasi ketat di zona EMA yang diakhiri ledakan momentum beli ke atas.</td>
+      </tr>
+      <tr>
+        <td><strong>9. Two Candle Rejection</strong></td>
+        <td>Ekor bawah panjang pada lilin 1 atau lilin 2, diikuti penutupan hijau mantap.</td>
+        <td>Konfirmasi ganda bahwa area support EMA 8/21 menolak penurunan harga.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>B. 9 Pola Konfirmasi Bearish (Rejection & Momentum Turun)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Nama Pola Lilin</th>
+        <th style="width: 35%;">Karakter Geometri</th>
+        <th>Makna Institusional & Entry</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Shooting Star</strong></td>
+        <td>Ekor atas panjang (&ge; 1.8x body), body kecil di ujung bawah, ekor bawah minim.</td>
+        <td>Penolakan keras terhadap harga tinggi di area EMA. Seller mulai menekan habis.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Pin Bar Bearish</strong></td>
+        <td>Ekor atas sangat dominan (&ge; 60% total rentang candle).</td>
+        <td>Likuiditas harga atas terserap dan langsung di-dump oleh institusi.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Bearish Engulfing</strong></td>
+        <td>Lilin merah besar yang body-nya menelan seluruh body lilin hijau sebelumnya.</td>
+        <td>Pembalikan momentum turun secara drastis. Seller menguasai pasar sepenuhnya.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Dark Cloud Cover</strong></td>
+        <td>Lilin merah buka di dekat high hijau lalu ditutup menembus &lt; 50% body lilin hijau.</td>
+        <td>Tekanan jual mendadak masuk dan mematahkan separuh kekuatan buyer.</td>
+      </tr>
+      <tr>
+        <td><strong>5. Evening Star</strong></td>
+        <td>Formasi 3 lilin: Hijau besar &rarr; Lilin kecil/Doji di EMA &rarr; Merah kuat (&lt; 50% lilin 1).</td>
+        <td>Akhir dari reli naik dan permulaan gelombang penurunan baru.</td>
+      </tr>
+      <tr>
+        <td><strong>6. Three Black Crows</strong></td>
+        <td>3 lilin merah berturut-turut dengan penutupan semakin rendah dan body proporsional.</td>
+        <td>Distribusi agresif berkelanjutan. Konfirmasi tren bearish sangat kuat.</td>
+      </tr>
+      <tr>
+        <td><strong>7. Doji Rejection</strong></td>
+        <td>Body lilin sangat tipis (&le; 18% range) dengan ekor atas panjang (&ge; 50% range).</td>
+        <td>Ketidakpastian yang berakhir dengan penolakan harga atas di resistance EMA.</td>
+      </tr>
+      <tr>
+        <td><strong>8. Bearish Inside Bar</strong></td>
+        <td>Lilin berada dalam rentang lilin induk sebelumnya, lalu breakdown merah ke bawah.</td>
+        <td>Kompresi volume di zona EMA yang ditembus paksa ke arah bawah.</td>
+      </tr>
+      <tr>
+        <td><strong>9. Two Candle Rejection</strong></td>
+        <td>Ekor atas panjang pada lilin 1 atau lilin 2, diikuti penutupan merah mantap.</td>
+        <td>Konfirmasi ganda bahwa area resistance EMA 8/21 menolak kenaikan harga.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 5: MODUL ANTI-FALSE SIGNAL -->
+  <h2>5. Modul Anti-False Signal (Kapan DILARANG Entry)</h2>
+  <p>Indikator ini dilengkapi <strong>Sistem Keamanan Otomatis (Watchdog)</strong> untuk mencegah trader terjebak pada kondisi pasar palsu (sideways / whipsaw / overextended):</p>
+
+  <div class="card card-alert no-break">
+    <h3 style="color: #b45309; margin-top: 0;">3 Skenario Pasar Berbahaya yang Wajib Dihindari:</h3>
+    
+    <div style="margin-bottom: 12px;">
+      <strong>1. EMA 8 dan EMA 21 Sideways / Bolak-Balik Bersilangan (Chop Filter):</strong><br>
+      • <em>Gejala:</em> Garis EMA 8 dan 21 saling crossing &ge; 2 kali dalam 15 candle terakhir, atau jarak pita ribbon sangat tipis.<br>
+      • <em>Arti:</em> Pasar sedang mengalami konsolidasi tanpa tren.<br>
+      • <em>Status HUD:</em> <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">Warning: EMA Sideways</span> &rarr; <strong>DILARANG ENTRY!</strong>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <strong>2. Harga Bolak-Balik Melintasi EMA 125 (Whipsaw Filter):</strong><br>
+      • <em>Gejala:</em> Lilin harga menembus ke atas dan ke bawah EMA 125 &ge; 2 kali dalam 20 candle terakhir.<br>
+      • <em>Arti:</em> EMA 125 tidak lagi dihormati sebagai support/resistance; market sedang ranging di tengah garis baseline.<br>
+      • <em>Status HUD:</em> <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">Warning: Whipsaw EMA 125</span> &rarr; <strong>DILARANG ENTRY!</strong>
+    </div>
+
+    <div>
+      <strong>3. Lilin Terlalu Jauh dari Garis EMA (Overextended Risk):</strong><br>
+      • <em>Gejala:</em> Lilin sudah melompat melebihi batas 2.2x nilai ATR dari EMA 8.<br>
+      • <em>Arti:</em> Pasar sudah jenuh beli/jual (overbought/oversold). Jika entry di sini, risiko tinggi Anda terkena koreksi tajam.<br>
+      • <em>Tindakan:</em> Tunggu harga kembali melakukan <em>pullback</em> ke EMA 8/21 sebelum mencari konfirmasi baru.
+    </div>
+  </div>
+
+  <!-- SECTION 6: PANDUAN MEMBACA HUD DASHBOARD -->
+  <h2>6. Cara Membaca Dashboard HUD On-Chart</h2>
+  <p>Tabel HUD on-chart berada di sudut chart Anda dan memberikan ringkasan status pasar secara real-time tanpa perlu Anda menganalisa grafik secara manual:</p>
+
+  <div class="hud-mockup no-break">
+    <table>
+      <thead>
+        <tr>
+          <th colspan="2" style="text-align: left;">SMC & TRIPLE EMA MASTER &nbsp; [ XAUUSD M15 ]</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="width: 38%;">Triple EMA Trend:</td>
+          <td><span class="text-green">BULLISH (8 &gt; 21 &gt; 125)</span></td>
+        </tr>
+        <tr>
+          <td>Market Structure:</td>
+          <td><span class="text-green">BULLISH BOS (HL)</span></td>
+        </tr>
+        <tr>
+          <td>Major Resistance:</td>
+          <td><span class="text-red">2752.40 (+48.0 pips)</span> &nbsp;&rarr; Level Target TP Buy</td>
+        </tr>
+        <tr>
+          <td>Major Support:</td>
+          <td><span class="text-green">2715.10 (-32.5 pips)</span> &nbsp;&rarr; Level Pengaman SL Buy</td>
+        </tr>
+        <tr>
+          <td>Fibonacci Zone:</td>
+          <td><span class="text-yellow">IN GOLDEN POCKET! (OTE 61.8%)</span></td>
+        </tr>
+        <tr>
+          <td>Active OBs / FVGs:</td>
+          <td><span class="text-blue">2 OBs | 1 FVGs</span> &nbsp;&rarr; Area Institusional</td>
+        </tr>
+        <tr>
+          <td>Market Safety:</td>
+          <td><span class="text-green">Clear (No Warnings)</span> &nbsp;&rarr; Aman untuk Eksekusi</td>
+        </tr>
+        <tr>
+          <td>Trade Signal:</td>
+          <td><span class="text-green">BUY: Bullish Engulfing</span> &nbsp;&rarr; Sinyal Eksekusi Terkonfirmasi!</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 7: CONFLUENCE GRADE TABLE -->
+  <div class="no-break">
+    <h2>7. Tingkatan Kualitas Sinyal (Signal Rating Grade)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 15%;">Grade</th>
+          <th style="width: 35%;">Kombinasi Konfluensi</th>
+          <th style="width: 25%;">Estimasi Winrate</th>
+          <th>Rekomendasi Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-bull" style="background:#16a34a;color:#fff;">A+ (SUPER)</span></td>
+          <td>Pullback EMA 8/21 + Pola Candle + Order Block (OB) / FVG + Golden Zone 61.8%</td>
+          <td><strong>Sangat Tinggi (80%+)</strong></td>
+          <td>Full Risk (1-2% dari modal akun). Setup terbaik institusi.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-bull">A (HIGH)</span></td>
+          <td>Pullback EMA 8/21 + Pola Candle + Major Support / Resistance</td>
+          <td><strong>Tinggi (70 - 78%)</strong></td>
+          <td>Standar Risk (1% dari modal akun). Setup harian utama.</td>
+        </tr>
+        <tr>
+          <td><span class="badge" style="background:#fef9c3;color:#854d0e;">B (MEDIUM)</span></td>
+          <td>Pullback EMA 8/21 + Pola Candle murni (tanpa confluence OB/FVG/SR)</td>
+          <td><strong>Sedang (60 - 68%)</strong></td>
+          <td>Half Risk (0.5% dari modal akun). Amankan profit cepat di TP1.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-bear" style="background:#dc2626;color:#fff;">D (REJECT)</span></td>
+          <td>Muncul sinyal saat Dashboard Safety menampilkan <em>EMA Sideways</em> / <em>Whipsaw</em></td>
+          <td><strong>Rendah (&lt; 40%)</strong></td>
+          <td><strong>SKIP / JANGAN ENTRY</strong>. Risiko tinggi false breakout.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer-note">
+    Dokumen ini adalah Panduan Strategi Resmi untuk Indikator TradingView <code>Institutional SMC & S/R Master [XAUUSD Pro]</code>.<br>
+    Gunakan selalu manajemen resiko yang ketat. Jangan pernah meresikokan lebih dari 1-2% per transaksi.
+  </div>
+
+</body>
+</html>

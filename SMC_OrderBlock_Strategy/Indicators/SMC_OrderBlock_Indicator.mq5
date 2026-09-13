@@ -1,12 +1,13 @@
 //+------------------------------------------------------------------+
 //|                                  SMC_OrderBlock_Indicator.mq5   |
-//|                 Smart Money Concepts (OB, FVG, BOS & CHoCH)      |
+//|    Institutional SMC & S/R Master (Support, Resistance, Fibo,   |
+//|                 Order Block, FVG, BOS & CHoCH System)            |
 //|                         Copyright 2026, XAUUSD Senior Trader     |
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2026, XAUUSD Senior Trader"
 #property link        ""
-#property version     "1.10"
-#property description "SMC Visual Indicator: Order Block (OB), Fair Value Gap (FVG), BOS & CHoCH Structure Shift dengan HUD Dashboard"
+#property version     "1.20"
+#property description "Institutional SMC & S/R Master: Garis Support/Resistance Dinamis, Auto Fibo Golden Zone, Order Block, FVG, BOS/CHoCH, & HUD Dashboard"
 
 #property indicator_chart_window
 #property indicator_buffers 2
@@ -26,34 +27,53 @@
 #property indicator_style2  STYLE_SOLID
 #property indicator_width2  2
 
-// Include modul SMC
+// Include modul SMC Core
 #include "..\Include\SMC_Core.mqh"
 
 //+------------------------------------------------------------------+
 //| Parameter Input                                                  |
 //+------------------------------------------------------------------+
-input group "=== Parameter Deteksi Smart Money Concepts ==="
+input group "=== 1. Garis Support & Resistance (Realtime & Kuat) ==="
+input bool                 InpShowSR               = true;          // Tampilkan Garis Support & Resistance
+input int                  InpSrLookbackMajor      = 15;            // Lookback Major S/R (Terkuat)
+input int                  InpSrLookbackMinor      = 5;             // Lookback Minor S/R (Terdekat)
+input color                InpColorMajorRes        = C'242,54,69';  // Warna Major Resistance (Merah Solid)
+input color                InpColorMajorSup        = C'8,153,129';  // Warna Major Support (Hijau Solid)
+input color                InpColorMinorRes        = C'235,87,87';  // Warna Minor Resistance (Merah Putus-putus)
+input color                InpColorMinorSup        = C'39,174,96';  // Warna Minor Support (Hijau Putus-putus)
+input bool                 InpShowSRLabels         = true;          // Tampilkan Label Harga S/R di Kanan
+
+input group "=== 2. Auto Fibonacci Golden Zone (0.50 - 0.65 OTE) ==="
+input bool                 InpShowFibo             = true;          // Tampilkan Auto Fibo Golden Zone
+input color                InpColorGoldenZone      = C'65,50,15';   // Warna Kotak Golden Pocket
+input color                InpColorFibo618         = clrGold;       // Warna Garis Rasio Emas 61.8%
+input bool                 InpShowFiboLabel        = true;          // Tampilkan Label Fibo 61.8%
+
+input group "=== 3. Garis Struktur Pasar (BOS & CHoCH) ==="
+input bool                 InpShowStructureLines   = true;          // Tampilkan Garis BOS & CHoCH
+input color                InpColorBullStruct      = clrLime;       // Warna Bullish Structure (BOS/CHoCH)
+input color                InpColorBearStruct      = clrTomato;     // Warna Bearish Structure (BOS/CHoCH)
+
+input group "=== 4. Institutional Order Block (OB) & FVG ==="
 input int                  InpSwingLookback        = 3;             // Fractal Swing Lookback (Bars)
 input int                  InpMaxZones             = 8;             // Maksimal Zona OB & FVG Aktif
 input double               InpMinFvgPoints         = 30.0;          // Ukuran Minimal FVG (Points)
 input double               InpMinObPoints          = 20.0;          // Ukuran Minimal Order Block (Points)
 input bool                 InpShowOrderBlocks      = true;          // Gambar Kotak Order Block (OB) di Chart
 input bool                 InpShowFVG              = true;          // Gambar Kotak Fair Value Gap (FVG)
-input bool                 InpShowMitigatedZones   = true;          // Tampilkan Zona yang Sudah Termitigasi (Muted)
-
-input group "=== Kustomisasi Warna Zona Visual ==="
-input color                InpColorBullishOB       = C'30,70,140';  // Warna Bullish Order Block (Demand)
-input color                InpColorBearishOB       = C'140,40,50';  // Warna Bearish Order Block (Supply)
+input bool                 InpShowMitigatedZones   = true;          // Tampilkan Zona Termitigasi (Garis Muted)
+input color                InpColorBullishOB       = C'30,70,140';  // Warna Bullish OB (Demand)
+input color                InpColorBearishOB       = C'140,40,50';  // Warna Bearish OB (Supply)
 input color                InpColorBullishFVG      = C'20,110,90';  // Warna Bullish FVG
 input color                InpColorBearishFVG      = C'130,50,110'; // Warna Bearish FVG
 
-input group "=== Tampilan Visual & Dashboard HUD ==="
+input group "=== 5. HUD Dashboard On-Chart ==="
 input bool                 InpShowDashboard        = true;          // Tampilkan HUD Dashboard di Chart
 input ENUM_BASE_CORNER     InpDashboardCorner      = CORNER_LEFT_LOWER; // Letak Sudut Dashboard
 input int                  InpDashboardX           = 20;            // Posisi X Dashboard (Pixel)
 input int                  InpDashboardY           = 25;            // Posisi Y Dashboard (Pixel)
 
-input group "=== Notifikasi & Alert ==="
+input group "=== 6. Sistem Notifikasi & Alert ==="
 input bool                 InpPopupAlert           = true;          // Pop-up Alert di Layar MT5
 input bool                 InpPushNotification     = true;          // Push Notification ke HP (MT5 Mobile)
 input bool                 InpSoundAlert           = true;          // Bunyi Alarm
@@ -65,18 +85,25 @@ input string               InpSoundFile            = "alert.wav";   // File Suar
 double BufferBuySignal[];
 double BufferSellSignal[];
 
-// Objek Mesin SMC
+// Objek Mesin SMC Core
 CSMCCore smcEngine;
 
-// Status Terakhir untuk Dashboard
+// Status Global & Prefiks Objek
 datetime lastAlertBarTime    = 0;
-string   lastDetectedSignal  = "Waiting for Retest";
+string   lastDetectedSignal  = "Scanning Setup...";
 color    lastSignalColor     = C'180,185,195';
 
-#define PREFIX_SMC "SMC_DASH_"
-#define PREFIX_OB  "SMC_OB_"
-#define PREFIX_FVG "SMC_FVG_"
-#define PREFIX_STR "SMC_STR_"
+double   g_majorRes          = 0.0;
+double   g_majorSup          = 0.0;
+double   g_minorRes          = 0.0;
+double   g_minorSup          = 0.0;
+
+#define PREFIX_SMC  "SMC_DASH_"
+#define PREFIX_SR   "SMC_SR_"
+#define PREFIX_FIB  "SMC_FIB_"
+#define PREFIX_STR  "SMC_STR_"
+#define PREFIX_OB   "SMC_OB_"
+#define PREFIX_FVG  "SMC_FVG_"
 
 //+------------------------------------------------------------------+
 //| Format Singkat Timeframe                                         |
@@ -96,6 +123,52 @@ string GetTfShortName(ENUM_TIMEFRAMES tf)
       case PERIOD_MN1: return "MN";
       default:         return EnumToString(tf);
      }
+  }
+
+//+------------------------------------------------------------------+
+//| Helper Menggambar Garis Horizontal Memanjang (Ray Right)         |
+//+------------------------------------------------------------------+
+void DrawRayLine(string name, datetime t1, double p1, datetime t2, double p2, color clr, int width, ENUM_LINE_STYLE style)
+  {
+   if(ObjectFind(0, name) < 0)
+     {
+      ObjectCreate(0, name, OBJ_TREND, 0, t1, p1, t2, p2);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+     }
+   else
+     {
+      ObjectMove(0, name, 0, t1, p1);
+      ObjectMove(0, name, 1, t2, p2);
+     }
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, width);
+   ObjectSetInteger(0, name, OBJPROP_STYLE, style);
+   ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, true);
+   ObjectSetInteger(0, name, OBJPROP_BACK, true);
+  }
+
+//+------------------------------------------------------------------+
+//| Helper Menggambar Tag Label Harga di Kanan Layar                 |
+//+------------------------------------------------------------------+
+void DrawPriceTag(string name, datetime t, double price, string text, color clr, int fontSize = 8)
+  {
+   if(ObjectFind(0, name) < 0)
+     {
+      ObjectCreate(0, name, OBJ_TEXT, 0, t, price);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+     }
+   else
+     {
+      ObjectMove(0, name, 0, t, price);
+     }
+   ObjectSetString(0, name, OBJPROP_TEXT, text);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetString(0, name, OBJPROP_FONT, "Segoe UI Bold");
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
+   ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_LEFT);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);
   }
 
 //+------------------------------------------------------------------+
@@ -145,7 +218,7 @@ void CreatePanel(string name, int x, int y, int width, int height, color bgClr, 
   }
 
 //+------------------------------------------------------------------+
-//| Helper Menggambar Kotak Zona di Chart (OB / FVG)                 |
+//| Helper Menggambar Kotak Zona di Chart (OB / FVG / Fibo)          |
 //+------------------------------------------------------------------+
 void DrawZoneBox(string name, datetime t1, double p1, datetime t2, double p2, color clr, bool isFilled = true, ENUM_LINE_STYLE style = STYLE_SOLID)
   {
@@ -168,6 +241,55 @@ void DrawZoneBox(string name, datetime t1, double p1, datetime t2, double p2, co
   }
 
 //+------------------------------------------------------------------+
+//| Algoritma Deteksi Pivot High & Low                               |
+//+------------------------------------------------------------------+
+bool FindPivotHigh(const MqlRates &rates[], int total, int lookback, int startBar, double &outPrice, datetime &outTime)
+  {
+   for(int i = startBar + lookback; i < total - lookback; i++)
+     {
+      bool isHigh = true;
+      for(int j = 1; j <= lookback; j++)
+        {
+         if(rates[i].high < rates[i - j].high || rates[i].high < rates[i + j].high)
+           {
+            isHigh = false;
+            break;
+           }
+        }
+      if(isHigh)
+        {
+         outPrice = rates[i].high;
+         outTime  = rates[i].time;
+         return true;
+        }
+     }
+   return false;
+  }
+
+bool FindPivotLow(const MqlRates &rates[], int total, int lookback, int startBar, double &outPrice, datetime &outTime)
+  {
+   for(int i = startBar + lookback; i < total - lookback; i++)
+     {
+      bool isLow = true;
+      for(int j = 1; j <= lookback; j++)
+        {
+         if(rates[i].low > rates[i - j].low || rates[i].low > rates[i + j].low)
+           {
+            isLow = false;
+            break;
+           }
+        }
+      if(isLow)
+        {
+         outPrice = rates[i].low;
+         outTime  = rates[i].time;
+         return true;
+        }
+     }
+   return false;
+  }
+
+//+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
 int OnInit()
@@ -183,7 +305,7 @@ int OnInit()
 
    smcEngine.Configure(InpSwingLookback, InpMaxZones, InpMinFvgPoints, InpMinObPoints);
 
-   IndicatorSetString(INDICATOR_SHORTNAME, "SMC Order Block & FVG System");
+   IndicatorSetString(INDICATOR_SHORTNAME, "Institutional SMC & S/R Master");
    IndicatorSetInteger(INDICATOR_DIGITS, _Digits);
 
    return(INIT_SUCCEEDED);
@@ -195,13 +317,147 @@ int OnInit()
 void OnDeinit(const int reason)
   {
    ObjectsDeleteAll(0, PREFIX_SMC);
+   ObjectsDeleteAll(0, PREFIX_SR);
+   ObjectsDeleteAll(0, PREFIX_FIB);
    ObjectsDeleteAll(0, PREFIX_OB);
    ObjectsDeleteAll(0, PREFIX_FVG);
    ObjectsDeleteAll(0, PREFIX_STR);
   }
 
 //+------------------------------------------------------------------+
-//| Menggambar Garis & Kotak Zona SMC pada Chart                     |
+//| 1. Render Garis Support & Resistance (Major & Minor Realtime)    |
+//+------------------------------------------------------------------+
+void RenderSRLines(const MqlRates &rates[], int totalBars)
+  {
+   if(!InpShowSR) return;
+
+   datetime rightTime = rates[0].time + PeriodSeconds() * 12;
+
+   // 1. Major Resistance & Support (Terkuat)
+   double   majResP = 0.0, majSupP = 0.0;
+   datetime majResT = 0,   majSupT = 0;
+
+   if(FindPivotHigh(rates, totalBars, InpSrLookbackMajor, 1, majResP, majResT))
+     {
+      g_majorRes = majResP;
+      DrawRayLine(PREFIX_SR + "MAJOR_RES", majResT, majResP, rightTime, majResP, InpColorMajorRes, 2, STYLE_SOLID);
+      if(InpShowSRLabels)
+         DrawPriceTag(PREFIX_SR + "LBL_MAJ_RES", rightTime, majResP, StringFormat(" R Major: %.2f", majResP), InpColorMajorRes, 8);
+     }
+
+   if(FindPivotLow(rates, totalBars, InpSrLookbackMajor, 1, majSupP, majSupT))
+     {
+      g_majorSup = majSupP;
+      DrawRayLine(PREFIX_SR + "MAJOR_SUP", majSupT, majSupP, rightTime, majSupP, InpColorMajorSup, 2, STYLE_SOLID);
+      if(InpShowSRLabels)
+         DrawPriceTag(PREFIX_SR + "LBL_MAJ_SUP", rightTime, majSupP, StringFormat(" S Major: %.2f", majSupP), InpColorMajorSup, 8);
+     }
+
+   // 2. Minor Resistance & Support (Terdekat)
+   double   minResP = 0.0, minSupP = 0.0;
+   datetime minResT = 0,   minSupT = 0;
+
+   if(FindPivotHigh(rates, totalBars, InpSrLookbackMinor, 1, minResP, minResT))
+     {
+      if(MathAbs(minResP - g_majorRes) > (_Point * 10))
+        {
+         g_minorRes = minResP;
+         DrawRayLine(PREFIX_SR + "MINOR_RES", minResT, minResP, rightTime, minResP, InpColorMinorRes, 1, STYLE_DASH);
+         if(InpShowSRLabels)
+            DrawPriceTag(PREFIX_SR + "LBL_MIN_RES", rightTime, minResP, StringFormat(" R Minor: %.2f", minResP), InpColorMinorRes, 8);
+        }
+     }
+
+   if(FindPivotLow(rates, totalBars, InpSrLookbackMinor, 1, minSupP, minSupT))
+     {
+      if(MathAbs(minSupP - g_majorSup) > (_Point * 10))
+        {
+         g_minorSup = minSupP;
+         DrawRayLine(PREFIX_SR + "MINOR_SUP", minSupT, minSupP, rightTime, minSupP, InpColorMinorSup, 1, STYLE_DASH);
+         if(InpShowSRLabels)
+            DrawPriceTag(PREFIX_SR + "LBL_MIN_SUP", rightTime, minSupP, StringFormat(" S Minor: %.2f", minSupP), InpColorMinorSup, 8);
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| 2. Render Auto Fibonacci Golden Zone (0.50 - 0.65 OTE)           |
+//+------------------------------------------------------------------+
+void RenderFibonacciGoldenZone(const MqlRates &rates[], int totalBars)
+  {
+   if(!InpShowFibo) return;
+
+   double highRange = smcEngine.GetDealingRangeHigh();
+   double lowRange  = smcEngine.GetDealingRangeLow();
+   double diffRange = highRange - lowRange;
+
+   if(diffRange <= 0.0) return;
+
+   datetime rightTime = rates[0].time + PeriodSeconds() * 12;
+
+   bool isBullSwing = (rates[0].close >= (lowRange + diffRange * 0.50));
+   double p50  = isBullSwing ? (highRange - diffRange * 0.50) : (lowRange + diffRange * 0.50);
+   double p618 = isBullSwing ? (highRange - diffRange * 0.618) : (lowRange + diffRange * 0.618);
+   double p65  = isBullSwing ? (highRange - diffRange * 0.65) : (lowRange + diffRange * 0.65);
+
+   double topGold = MathMax(p50, p65);
+   double btmGold = MathMin(p50, p65);
+
+   datetime startFiboTime = rates[MathMin(totalBars - 1, 50)].time;
+   for(int i = 0; i < MathMin(totalBars, 60); i++)
+     {
+      if(MathAbs(rates[i].high - highRange) < (_Point * 3) || MathAbs(rates[i].low - lowRange) < (_Point * 3))
+        {
+         startFiboTime = rates[i].time;
+         break;
+        }
+     }
+
+   // 1. Kotak Golden Pocket
+   DrawZoneBox(PREFIX_FIB + "ZONE", startFiboTime, topGold, rightTime, btmGold, InpColorGoldenZone, true, STYLE_SOLID);
+
+   // 2. Garis Rasio Emas 61.8%
+   DrawRayLine(PREFIX_FIB + "618", startFiboTime, p618, rightTime, p618, InpColorFibo618, 2, STYLE_DASH);
+
+   // 3. Tag Label 61.8%
+   if(InpShowFiboLabel)
+      DrawPriceTag(PREFIX_FIB + "LBL", rightTime, p618, StringFormat(" Golden 61.8%%: %.2f", p618), InpColorFibo618, 8);
+  }
+
+//+------------------------------------------------------------------+
+//| 3. Render Garis Struktur Pasar (BOS & CHoCH)                     |
+//+------------------------------------------------------------------+
+void RenderStructureVisuals(const MqlRates &rates[], int totalBars)
+  {
+   if(!InpShowStructureLines) return;
+
+   datetime rightTime = rates[0].time + PeriodSeconds() * 10;
+   ENUM_SMC_STRUCTURE st = smcEngine.GetLastStructure();
+
+   if(st == SMC_STRUCT_BULLISH_BOS || st == SMC_STRUCT_BULLISH_CHOCH)
+     {
+      datetime stTime = (st == SMC_STRUCT_BULLISH_BOS) ? smcEngine.GetLastBosTime() : smcEngine.GetLastChochTime();
+      if(stTime > 0 && g_majorRes > 0)
+        {
+         string lbl = (st == SMC_STRUCT_BULLISH_BOS) ? "BOS [Bullish]" : "CHoCH [Bullish Reversal]";
+         DrawRayLine(PREFIX_STR + "ACTIVE", stTime, g_majorRes, rightTime, g_majorRes, InpColorBullStruct, 2, (st == SMC_STRUCT_BULLISH_BOS) ? STYLE_SOLID : STYLE_DASH);
+         DrawPriceTag(PREFIX_STR + "TAG", rightTime, g_majorRes, " " + lbl, InpColorBullStruct, 8);
+        }
+     }
+   else if(st == SMC_STRUCT_BEARISH_BOS || st == SMC_STRUCT_BEARISH_CHOCH)
+     {
+      datetime stTime = (st == SMC_STRUCT_BEARISH_BOS) ? smcEngine.GetLastBosTime() : smcEngine.GetLastChochTime();
+      if(stTime > 0 && g_majorSup > 0)
+        {
+         string lbl = (st == SMC_STRUCT_BEARISH_BOS) ? "BOS [Bearish]" : "CHoCH [Bearish Reversal]";
+         DrawRayLine(PREFIX_STR + "ACTIVE", stTime, g_majorSup, rightTime, g_majorSup, InpColorBearStruct, 2, (st == SMC_STRUCT_BEARISH_BOS) ? STYLE_SOLID : STYLE_DASH);
+         DrawPriceTag(PREFIX_STR + "TAG", rightTime, g_majorSup, " " + lbl, InpColorBearStruct, 8);
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| 4. Render Kotak Zona Order Block & Fair Value Gap                |
 //+------------------------------------------------------------------+
 void RenderSMCVisuals(const MqlRates &rates[], int totalBars)
   {
@@ -267,14 +523,14 @@ void RenderSMCVisuals(const MqlRates &rates[], int totalBars)
   }
 
 //+------------------------------------------------------------------+
-//| Menggambar HUD Dashboard Elegan & Rapi                           |
+//| 5. Menggambar HUD Dashboard Elegan & Rapi di Chart               |
 //+------------------------------------------------------------------+
 void DrawDashboard(const MqlRates &rates[], double currentAtr)
   {
    int x = InpDashboardX;
    int y = InpDashboardY;
    int width = 430;
-   int height = 232;
+   int height = 250;
    ENUM_BASE_CORNER corner = InpDashboardCorner;
 
    bool isLower = (corner == CORNER_LEFT_LOWER || corner == CORNER_RIGHT_LOWER);
@@ -284,9 +540,9 @@ void DrawDashboard(const MqlRates &rates[], double currentAtr)
    int y_title  = isLower ? (y + height - 21) : (y + 6);
    int y_sub    = isLower ? (y + height - 20) : (y + 7);
    int y_row1   = isLower ? (y + height - 48) : (y + 34);
-   int stepY    = isLower ? -21 : 21;
-   int y_div    = isLower ? (y + 26) : (y + 196);
-   int y_foot   = isLower ? (y + 8)  : (y + 202);
+   int stepY    = isLower ? -20 : 20;
+   int y_div    = isLower ? (y + 26) : (y + 214);
+   int y_foot   = isLower ? (y + 8)  : (y + 220);
 
    // Background Panel Elegan
    CreatePanel("BG", x, y_bg, width, height, C'20,26,38', C'52,66,92', corner);
@@ -294,7 +550,7 @@ void DrawDashboard(const MqlRates &rates[], double currentAtr)
 
    // Header
    long liveSpread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   CreateLabel("TITLE", x + 14, y_title, "SMART MONEY CONCEPTS", clrGold, 9, true, corner);
+   CreateLabel("TITLE", x + 14, y_title, "INSTITUTIONAL SMC & S/R", clrGold, 9, true, corner);
    string symTfText = StringFormat("[%s | %s | Spr: %d]", _Symbol, GetTfShortName(_Period), liveSpread);
    CreateLabel("SUBTITLE", x + 215, y_sub, symTfText, (liveSpread <= 45) ? clrDeepSkyBlue : clrTomato, 8, false, corner);
 
@@ -310,111 +566,73 @@ void DrawDashboard(const MqlRates &rates[], double currentAtr)
    else if(st == SMC_STRUCT_BULLISH_BOS)   { stText = "BULLISH BOS (Trend UP)"; stColor = clrAqua; }
    else if(st == SMC_STRUCT_BEARISH_BOS)   { stText = "BEARISH BOS (Trend DOWN)"; stColor = clrSalmon; }
 
-   CreateLabel("L_STRUCT", x + 14, lineY, "SMC Structure:", C'180,185,195', 9, false, corner);
+   CreateLabel("L_STRUCT", x + 14, lineY, "Market Structure:", C'180,185,195', 9, false, corner);
    CreateLabel("V_STRUCT", x_val, lineY, stText, stColor, 9, true, corner);
 
-   // Baris 2: Order Block Bullish Terdekat (Unmitigated)
+   // Baris 2: Major Resistance Terkuat
    lineY += stepY;
-   string obBullText = "None Active";
-   color  obBullColor = C'140,150,165';
+   string resStr = (g_majorRes > 0) ? StringFormat("%.2f (+%d pips)", g_majorRes, (int)((g_majorRes - rates[0].close) / _Point / 10)) : "Scanning...";
+   CreateLabel("L_MAJ_RES", x + 14, lineY, "Major Resistance:", C'180,185,195', 9, false, corner);
+   CreateLabel("V_MAJ_RES", x_val, lineY, resStr, C'242,54,69', 9, true, corner);
+
+   // Baris 3: Major Support Terkuat
+   lineY += stepY;
+   string supStr = (g_majorSup > 0) ? StringFormat("%.2f (-%d pips)", g_majorSup, (int)((rates[0].close - g_majorSup) / _Point / 10)) : "Scanning...";
+   CreateLabel("L_MAJ_SUP", x + 14, lineY, "Major Support:", C'180,185,195', 9, false, corner);
+   CreateLabel("V_MAJ_SUP", x_val, lineY, supStr, C'8,153,129', 9, true, corner);
+
+   // Baris 4: Status Fibo Golden Zone
+   lineY += stepY;
+   double highRange = smcEngine.GetDealingRangeHigh();
+   double lowRange  = smcEngine.GetDealingRangeLow();
+   double diffRange = highRange - lowRange;
+   string fiboText = "Equilibrium";
+   color  fiboClr  = clrGold;
+
+   if(diffRange > 0)
+     {
+      double midRange = lowRange + diffRange * 0.50;
+      double p618 = highRange - diffRange * 0.618;
+      if(MathAbs(rates[0].close - p618) <= (_Point * 25))
+        {
+         fiboText = "IN GOLDEN POCKET (0.618 OTE)!";
+         fiboClr  = clrGold;
+        }
+      else if(rates[0].close > midRange)
+        {
+         fiboText = "Premium Zone (Look for Sell)";
+         fiboClr  = C'242,54,69';
+        }
+      else
+        {
+         fiboText = "Discount Zone (Look for Buy)";
+         fiboClr  = C'8,153,129';
+        }
+     }
+   CreateLabel("L_FIBO", x + 14, lineY, "Fibonacci Zone:", C'180,185,195', 9, false, corner);
+   CreateLabel("V_FIBO", x_val, lineY, fiboText, fiboClr, 9, true, corner);
+
+   // Baris 5: Order Block Aktif
+   lineY += stepY;
+   int unmitOB = 0;
    int obTotal = smcEngine.GetOrderBlocksTotal();
    for(int i = 0; i < obTotal; i++)
      {
       SMC_OrderBlock ob;
-      if(smcEngine.GetOrderBlock(i, ob))
-        {
-         if(ob.isBullish && !ob.isMitigated && !ob.isInvalidated)
-           {
-            obBullText = StringFormat("Active: %.2f - %.2f", ob.low, ob.high);
-            obBullColor = clrAqua;
-            break;
-           }
-        }
+      if(smcEngine.GetOrderBlock(i, ob) && !ob.isMitigated && !ob.isInvalidated) unmitOB++;
      }
-   CreateLabel("L_OB_BULL", x + 14, lineY, "Bullish OB Zone:", C'180,185,195', 9, false, corner);
-   CreateLabel("V_OB_BULL", x_val, lineY, obBullText, obBullColor, 9, true, corner);
+   CreateLabel("L_OB", x + 14, lineY, "Active Order Blocks:", C'180,185,195', 9, false, corner);
+   CreateLabel("V_OB", x_val, lineY, StringFormat("%d Zones Unmitigated", unmitOB), clrDeepSkyBlue, 9, true, corner);
 
-   // Baris 3: Order Block Bearish Terdekat (Unmitigated)
-   lineY += stepY;
-   string obBearText = "None Active";
-   color  obBearColor = C'140,150,165';
-   for(int i = 0; i < obTotal; i++)
-     {
-      SMC_OrderBlock ob;
-      if(smcEngine.GetOrderBlock(i, ob))
-        {
-         if(!ob.isBullish && !ob.isMitigated && !ob.isInvalidated)
-           {
-            obBearText = StringFormat("Active: %.2f - %.2f", ob.low, ob.high);
-            obBearColor = clrSalmon;
-            break;
-           }
-        }
-     }
-   CreateLabel("L_OB_BEAR", x + 14, lineY, "Bearish OB Zone:", C'180,185,195', 9, false, corner);
-   CreateLabel("V_OB_BEAR", x_val, lineY, obBearText, obBearColor, 9, true, corner);
-
-   // Baris 4: FVG Imbalance Terdekat
-   lineY += stepY;
-   string fvgText = "No Imbalance";
-   color  fvgColor = C'140,150,165';
-   int fvgTotal = smcEngine.GetFvgsTotal();
-   for(int i = 0; i < fvgTotal; i++)
-     {
-      SMC_FairValueGap fvg;
-      if(smcEngine.GetFvg(i, fvg))
-        {
-         if(!fvg.isMitigated)
-           {
-            fvgText = StringFormat("%s Gap: %.2f - %.2f", fvg.isBullish ? "Bullish" : "Bearish", fvg.bottom, fvg.top);
-            fvgColor = fvg.isBullish ? clrMediumSeaGreen : clrHotPink;
-            break;
-           }
-        }
-     }
-   CreateLabel("L_FVG", x + 14, lineY, "Nearest FVG:", C'180,185,195', 9, false, corner);
-   CreateLabel("V_FVG", x_val, lineY, fvgText, fvgColor, 9, true, corner);
-
-   // Baris 5: Status Harga Terhadap Zona (Bar 0 Live)
-   lineY += stepY;
-   string retestText = "Price in Free Zone";
-   color  retestColor = C'170,180,195';
-   SMC_OrderBlock activeOB;
-   SMC_FairValueGap activeFVG;
-
-   if(smcEngine.IsRetestingBullishOB(rates[0].close, activeOB))
-     {
-      retestText = "RETESTING Bullish OB (Buy Area)";
-      retestColor = clrAqua;
-     }
-   else if(smcEngine.IsRetestingBearishOB(rates[0].close, activeOB))
-     {
-      retestText = "RETESTING Bearish OB (Sell Area)";
-      retestColor = clrMagenta;
-     }
-   else if(smcEngine.IsRetestingBullishFVG(rates[0].close, activeFVG))
-     {
-      retestText = "FILLING Bullish FVG Imbalance";
-      retestColor = clrLime;
-     }
-   else if(smcEngine.IsRetestingBearishFVG(rates[0].close, activeFVG))
-     {
-      retestText = "FILLING Bearish FVG Imbalance";
-      retestColor = clrOrangeRed;
-     }
-
-   CreateLabel("L_PRICE", x + 14, lineY, "Price Status:", C'180,185,195', 9, false, corner);
-   CreateLabel("V_PRICE", x_val, lineY, retestText, retestColor, 8, true, corner);
-
-   // Baris 6: Sinyal Terakhir
+   // Baris 6: Sinyal Konfirmasi Retest
    lineY += stepY;
    CreateLabel("L_SIGNAL", x + 14, lineY, "Trade Signal:", C'180,185,195', 9, false, corner);
    CreateLabel("V_SIGNAL", x_val, lineY, lastDetectedSignal, lastSignalColor, 9, true, corner);
 
-   // Baris 7: Filter Status
+   // Baris 7: Status Sistem
    lineY += stepY;
    CreateLabel("L_STATUS", x + 14, lineY, "System Status:", C'180,185,195', 9, false, corner);
-   CreateLabel("V_STATUS", x_val, lineY, "SMC Engine Active", clrLime, 8, true, corner);
+   CreateLabel("V_STATUS", x_val, lineY, "SMC & S/R Engine Running", clrLime, 8, true, corner);
 
    // Garis Pembatas & Footer
    CreatePanel("DIVIDER", x + 12, y_div, width - 24, 1, C'42,54,75', C'42,54,75', corner);
@@ -427,7 +645,7 @@ void DrawDashboard(const MqlRates &rates[], double currentAtr)
    else if(dt.hour >= 17 && dt.hour < 22) sessionName = "New York Session (Active)";
    else sessionName = "Asian / Rollover (Quiet)";
 
-   string footerText = StringFormat("● Sesi: %s", sessionName);
+   string footerText = StringFormat("● Sesi Pasar: %s", sessionName);
    CreateLabel("FOOTER", x + 14, y_foot, footerText, C'145,160,185', 8, false, corner);
   }
 
@@ -476,7 +694,7 @@ int OnCalculate(const int rates_total,
       if(rates[1].close > rates[1].open)
         {
          BufferBuySignal[bar1_idx] = rates[1].low - (currentAtr * 0.5);
-         lastDetectedSignal = "BUY CONFIRMED (OB Rejection)";
+         lastDetectedSignal = "BUY CONFIRMED (OB Retest)";
          lastSignalColor    = clrAqua;
 
          if(rates[1].time != lastAlertBarTime && prev_calculated > 0)
@@ -494,7 +712,7 @@ int OnCalculate(const int rates_total,
       if(rates[1].close < rates[1].open)
         {
          BufferSellSignal[bar1_idx] = rates[1].high + (currentAtr * 0.5);
-         lastDetectedSignal = "SELL CONFIRMED (OB Rejection)";
+         lastDetectedSignal = "SELL CONFIRMED (OB Retest)";
          lastSignalColor    = clrMagenta;
 
          if(rates[1].time != lastAlertBarTime && prev_calculated > 0)
@@ -507,10 +725,19 @@ int OnCalculate(const int rates_total,
         }
      }
 
-   // Gambar kotak visual zona SMC di chart
+   // 1. Gambar Garis Support & Resistance (Major & Minor)
+   RenderSRLines(rates, copied);
+
+   // 2. Gambar Auto Fibonacci Golden Zone (0.50 - 0.65 OTE)
+   RenderFibonacciGoldenZone(rates, copied);
+
+   // 3. Gambar Garis Struktur Pasar (BOS & CHoCH)
+   RenderStructureVisuals(rates, copied);
+
+   // 4. Gambar Kotak Zona Order Block & FVG
    RenderSMCVisuals(rates, copied);
 
-   // Gambar HUD Dashboard
+   // 5. Gambar HUD Dashboard
    if(InpShowDashboard)
      {
       DrawDashboard(rates, currentAtr);
