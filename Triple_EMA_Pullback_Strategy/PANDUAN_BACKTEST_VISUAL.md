@@ -42,7 +42,10 @@ Kami telah membuatkan berkas preset khusus: `Triple_EMA_XAUUSD_1Year_Backtest.se
 1. Klik tab **Inputs** di Strategy Tester.
 2. Klik kanan di area daftar input -> Pilih **Load**.
 3. Pilih file **`Triple_EMA_XAUUSD_1Year_Backtest.set`** (tersedia di folder `Profiles/Tester/` atau di folder project ini).
-4. Klik **Open**. Seluruh pengaturan (EMA, filter false signal, MTF filter H1, R:R 1:2, BEP, dan Trailing EMA 21) otomatis terisi secara optimal.
+4. Klik **Open**. Seluruh pengaturan (EMA, Sistem 3 Layar H1-M15-M5, Confluence Scoring 60+, Volume Filter SMA20, News Shock ATR, R:R 1:2, Partial Close 50% di 1:1R, dan Auto BEP) otomatis terisi secara optimal.
+
+> [!TIP]
+> **Sinkronisasi Otomatis**: Jika Anda memodifikasi kode strategi di VS Code / editor, cukup jalankan `deploy_to_mt5.bat` sekali klik untuk menyalin dan mengompilasi otomatis ke MetaTrader 5 Didimax Anda!
 
 ---
 

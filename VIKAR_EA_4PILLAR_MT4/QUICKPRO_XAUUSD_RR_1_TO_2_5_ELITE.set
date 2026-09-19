@@ -1,0 +1,236 @@
+;====================================================================
+; PRESET: QUICKPRO_XAUUSD_RR_1_TO_2_5_ELITE.set
+; STRATEGY: 4-PILLAR INSTITUTIONAL SMC + EMA + FIBO + SR (QUICKPRO MT4)
+; ASSET: XAUUSD / GOLD
+; TIMEFRAME: M15 (Optimal Intraday Swing)
+; RISK TO REWARD: 1 : 2.5 ASYMMETRIC INSTITUTIONAL RATIO
+;====================================================================
+
+;--- 1. MANAJEMEN LOT & RISIKO MODAL ---
+InpLotType=0
+InpRiskPercent=1.0
+InpFixedLot=0.01
+InpMinLot=0.0
+InpMaxLot=0.10
+InpMaxOpenPositions=1
+InpSignalCooldownBars=2
+InpMagicNumber=777125
+InpTradeComment=VIKAR-QP-2.5R
+InpDeviation=15
+
+;--- 2. TARGET STOP LOSS, TAKE PROFIT & EXIT STRATEGY (AUDITED 1:2.5) ---
+InpSLType=0
+InpSLBufferAtrMult=1.0
+InpMinSLPips=16.0
+InpMaxSLPips=26.0
+InpFixedSLPips=22.0
+InpTPType=0
+InpRiskRewardRatio=2.5
+
+;--- Auto-Breakeven / SL+ (Harmonis dengan Target 2.5R) ---
+InpUseBreakeven=1
+InpBreakevenMode=1
+InpBreakevenTriggerPips=16.0
+InpBreakevenRRTrigger=1.0
+InpBreakevenLockPips=3.5
+InpUseTrailingEMA21=1
+InpTrailingBufferPips=5.5
+
+;--- Partial Take Profit / Scaling Out (TP1 di 1.25R + Runner 2.5R) ---
+InpUsePartialClose=1
+InpPartialClosePercent=50.0
+InpPartialTriggerMode=1
+InpPartialTriggerPips=20.0
+InpPartialRRTrigger=1.25
+InpPartialMoveSLPlus=1
+
+;--- Multi-Stage Structural Trailing Stop (SMC Swing High/Low Runner) ---
+InpUseStructuralTrailing=1
+InpStructuralTrailingAtrBuffer=0.6
+
+;--- Auto Cut Profit Saat Indikasi Pembalikan Arah ---
+InpAutoCutProfit=1
+InpMinProfitToCutPips=5.0
+InpCutOnCHoCH=1
+InpCutOnCandleReversal=1
+InpCutOnEMACross=1
+
+;--- 3. PILAR 1: SMART MONEY CONCEPTS (SMC CORE) ---
+InpFractalPeriod=2
+InpRequireBOSorCHoCH=1
+InpRequireDiscount=0
+InpUseLiquiditySweep=1
+InpUseFVGFilter=1
+InpUseOrderBlock=1
+InpOBDisplacementAtrMult=1.20
+InpRequireOBMitigation=0
+InpOBMaxAgeBars=35
+InpFVGLookbackBars=20
+InpMinFVGPoints=12
+
+;--- 3.1 SISTEM SKOR KONFLUENSI 4 PILAR ---
+InpUseConfluenceScore=1
+InpMinConfluenceScore=60.0
+
+;--- 3.2 MESIN MOMENTUM BREAKOUT & EXPANSION ---
+InpAllowMomentumBreakout=1
+InpBreakoutAtrMult=1.1
+InpBreakoutRequireVSA=1
+InpBreakoutRequireBOS=1
+
+;--- 4. PILAR 2: SUPPORT & RESISTANCE (DAILY PIVOTS) ---
+InpUseDailyPivots=1
+InpRequireDoubleAlign=0
+InpMinHeadroomATR=0.75
+
+;--- 5. PILAR 3: TRIPLE EMA & MULTI-TIMEFRAME (H1 MACRO) ---
+InpFastEMA=8
+InpMediumEMA=21
+InpTrendEMA=125
+InpPullbackLookback=8
+InpFilterWhipsaw125=0
+InpUseHTFFilter=1
+InpHTFTimeframe=60
+InpHTFTrendEMA=125
+InpHTFRequireRibbon=1
+
+;--- 6. PILAR 4: FIBONACCI RETRACEMENT & GOLDEN POCKET ---
+InpUseAutoFibo=1
+InpRequireGoldenPocket=0
+InpFiboGPMin=0.500
+InpFiboGPMid=0.618
+InpFiboGPMax=0.786
+
+;--- 7. POLA KONFIRMASI CANDLESTICK REJECTION ---
+InpRequireCandleRejection=1
+InpMinCandleScore=55.0
+InpUseHammerPinBar=1
+InpUseEngulfing=1
+InpUseMorningEveningStar=1
+InpUseTweezer=1
+InpUseFVGRebound=1
+InpUseThreeSoldiersCrows=1
+InpUseHaramiInsideBar=1
+InpUsePiercingDarkCloud=1
+InpUseDragonflyGravestone=1
+InpUseInvertedHammerStar=1
+
+;--- 7.1 MESIN POLA GRAFIK (CHART PATTERN ENGINE) ---
+InpUseChartPatterns=1
+InpUseDoubleTopBottom=1
+InpUseQuasimodo=1
+InpUseHeadAndShoulders=1
+InpUseFlagsContinuation=1
+InpMinChartPatternScore=65.0
+
+;--- 8. FILTER PROTEKSI & WAKTU SESI PASAR ---
+InpUseShockGuard=1
+InpShockAtrMult=3.2
+InpShockCooldownBars=2
+InpCutOnEarlyInvalidation=1
+InpMaxSpreadPips=4.5
+InpUseSessionFilter=0
+InpSessionStartHour=0
+InpSessionEndHour=24
+
+;--- 8.1 PROTEKSI AKUN & CIRCUIT BREAKER ---
+InpUseConsecutiveLossGuard=1
+InpMaxConsecutiveLosses=2
+InpCooldownHours=4
+InpUseDailyLossLimit=1
+InpMaxDailyLossPercent=2.5
+
+;--- 8.2 VOLUME SPREAD ANALYSIS (VSA INSTITUSIONAL) ---
+InpUseVSA=1
+InpVSALookbackBars=20
+InpVSAClimaxRatio=1.75
+InpVSANoSupplyRatio=0.85
+
+;--- 8.3 PROTEKSI AKHIR PEKAN (FRIDAY WEEKEND GUARD) ---
+InpUseFridayGuard=1
+InpFridayCloseHour=21
+
+;--- 9. VISUAL DASHBOARD & NOTIFIKASI TELEPON ---
+InpShowDashboard=1
+InpDrawSMCOnChart=1
+InpSendPushNotifications=1
+InpNotifyOnEntry=1
+InpNotifyOnSLPlus=1
+InpNotifyOnPartial=1
+InpNotifyOnSLPlus=1
+InpNotifyOnCircuitBreaker=1
+;--- 8.4 ADAPTIVE SELF-HEALING & DIAGNOSTIC ENGINE (V2.40) ---
+InpUseSelfHealing=1
+InpPenaltyConfluencePts=10.0
+InpQuarantinePatternBars=15
+InpAdaptiveSLBufferBoost=0.3
+InpAdaptiveBufferTrades=3
+InpAutopsyNotifyPush=1
+;--- 8.5 DYNAMIC PATTERN PERFORMANCE MATRIX (AI LEARNING v2.50) ---
+InpUsePatternMatrix=1
+InpMinTradesForPatternEval=3
+InpPatternBlacklistWinrate=40.0
+InpPatternBoostWinrate=70.0
+InpPatternBoostScore=10.0
+InpPatternPenaltyScore=15.0
+
+;--- 8.6 MARKET REGIME CLASSIFIER (CHOPPINESS INDEX v2.50) ---
+InpUseRegimeFilter=1
+InpChoppinessPeriod=14
+InpChoppyThreshold=61.8
+InpTrendingThreshold=38.2
+InpBlockBreakoutInChoppy=1
+;--- 2.5 STAGNANT TRADE TIME-EXIT (v2.60) ---
+InpUseTimeBasedExit=1
+InpMaxTradeDurationHours=6
+InpMinProfitToTimeExitPips=0.0
+
+;--- 8.7 PRE-NEWS EVENT & SPREAD SPIKE SHIELD (v2.60) ---
+InpUseNewsShield=1
+InpNewsMinsBefore=20
+InpNewsMinsAfter=25
+InpAutoLockBEBeforeNews=1
+InpNewsReleaseHoursServer=15:30,21:00
+InpMaxSpreadSpikeMultiplier=1.8
+
+;--- 8.8 SENSOR KELELAHAN MOMENTUM: RSI DIVERGENCE (v2.60) ---
+InpUseDivergenceFilter=1
+InpRSIPeriod=14
+InpDivergenceLookbackBars=25
+;--- 8.9 SENSOR KEKUATAN TREN KINETIK: ADX FILTER (v2.70) ---
+InpUseADXFilter=1
+InpADXPeriod=14
+InpMinADXThreshold=22.0
+
+;--- 8.10 SENSOR KEMIRINGAN SUDUT: EMA SLOPE FILTER (v2.70) ---
+InpUseEMASlopeFilter=1
+InpEMASlopeLookback=5
+InpMinEMASlopePips=3.0
+
+;--- 8.11 SENSOR VOLUME INSTITUSIONAL: VSA EXPANSION (v2.70) ---
+InpUseVolumeFilter=1
+InpVolumeMAPeriod=20
+InpMinVolumeMultiplier=1.15
+
+;--- 8.12 BATAS BAWAH VOLATILITAS: MINIMUM ATR FLOOR (v2.70) ---
+InpUseMinATRFilter=1
+InpMinATRPips=12.0
+;--- 2.6 DYNAMIC STRUCTURAL SWING TRAILING (v3.00) ---
+InpUseStructuralTrailing=1
+InpStructuralTrailingAtrBuffer=0.5
+
+;--- 8.13 PROP FIRM EQUITY GUARDIAN & KILL-SWITCH (v3.00) ---
+InpUseEquityGuardian=1
+InpMaxDailyEquityDDPct=4.0
+InpLockTradingOnDDBreach=1
+
+;--- 8.14 ASYMMETRIC CONFIDENCE RISK ALLOCATOR (v3.00) ---
+InpUseAsymmetricLot=1
+InpGradeABoostMultiplier=1.30
+InpGradeBPenaltyMultiplier=0.70
+
+;--- 8.15 LIQUIDITY SWEEP TRAP HUNTER (v3.00) ---
+InpUseTrapHunter=1
+InpMinSweepPips=4.0
+InpMaxSweepPips=30.0
+InpMinRejectionWickPct=40.0

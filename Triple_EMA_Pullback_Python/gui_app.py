@@ -40,7 +40,10 @@ import matplotlib.ticker as ticker
 # Import modul strategi internal
 from config import TradingConfig
 from mt5_client import MT5Client
-from indicators import compute_all_indicators, calculate_ema
+from indicators import (
+    compute_all_indicators, calculate_ema,
+    is_in_fibo_golden_zone_buy, is_in_fibo_golden_zone_sell
+)
 from strategy import TripleEmaStrategy, TradeSignal
 from risk_manager import RiskManager
 from candle_patterns import CandlePattern, get_pattern_name, detect_bullish_pattern, detect_bearish_pattern
@@ -113,7 +116,7 @@ class TradingTerminalApp(ctk.CTk):
         self.tick_size = 0.01
         self.tick_value = 1.0
         self.chart_bars_count = 80
-        self.scalp_lot_selection = 0.01
+        self.scalp_lot_selection = 0.10
         self.chart_tick_counter = 0
 
         # State Interaktif Chart (Drag / Pan & Wheel Zoom)
@@ -398,8 +401,8 @@ class TradingTerminalApp(ctk.CTk):
                 font=ctk.CTkFont(family=FONT_MONO, size=10, weight="bold"),
                 width=65,
                 height=26,
-                fg_color=COLOR_ACCENT_CYAN if lot_val == 0.01 else COLOR_PANEL_SUB,
-                text_color="#000000" if lot_val == 0.01 else COLOR_TEXT_PRIMARY,
+                fg_color=COLOR_ACCENT_CYAN if lot_val == 0.10 else COLOR_PANEL_SUB,
+                text_color="#000000" if lot_val == 0.10 else COLOR_TEXT_PRIMARY,
                 hover_color=COLOR_BORDER_FOCUS,
                 corner_radius=4,
                 command=lambda v=lot_val: self._select_scalp_lot(v)
@@ -489,12 +492,16 @@ class TradingTerminalApp(ctk.CTk):
 
         self.switch_snr = self._create_confluence_switch(sec4, "Filter SNR (Obstacle & Confluence)", True, COLOR_ACCENT_GOLD)
         self.switch_smc = self._create_confluence_switch(sec4, "Filter SMC (Discount/Prem & Sweep)", getattr(self.cfg, 'use_smc_filter', True), COLOR_ACCENT_CYAN)
+        self.switch_fibo = self._create_confluence_switch(sec4, "Filter Fibo Golden Zone (50-78.6%)", getattr(self.cfg, 'use_fibo_golden_zone', True), COLOR_ACCENT_GOLD)
+        self.switch_rsi = self._create_confluence_switch(sec4, "Filter RSI Momentum (45-70 / 30-55)", getattr(self.cfg, 'use_rsi_filter', True), COLOR_ACCENT_CYAN)
+        self.switch_fvg = self._create_confluence_switch(sec4, "Filter FVG Imbalance Mitigasi", getattr(self.cfg, 'use_fvg_filter', False))
         self.switch_partial = self._create_confluence_switch(sec4, "Partial Take Profit 50% (1:1 R)", getattr(self.cfg, 'use_partial_close', True))
         self.switch_bep = self._create_confluence_switch(sec4, "Auto Break-Even (Kunci Impas)", self.cfg.use_break_even)
         self.switch_trailing = self._create_confluence_switch(sec4, "Trailing Stop (EMA 21 Dynamic)", self.cfg.use_trailing_stop)
         self.switch_cb = self._create_confluence_switch(sec4, f"Circuit Breaker (Maks {self.cfg.max_daily_losses} Loss)", self.cfg.use_daily_loss_limit)
         self.switch_friday = self._create_confluence_switch(sec4, "Friday Night Auto-Close (21:30)", self.cfg.use_friday_close)
         self.switch_mtf = self._create_confluence_switch(sec4, f"Filter HTF Macro ({self.cfg.htf_timeframe} EMA 50)", self.cfg.use_mtf_filter)
+        self.switch_shock = self._create_confluence_switch(sec4, "Filter News Shock Volatilitas", getattr(self.cfg, 'use_fundamental_shock_filter', True))
 
         btn_apply = ctk.CTkButton(
             sec4,
@@ -921,11 +928,13 @@ class TradingTerminalApp(ctk.CTk):
 
         self.chk_ema = self._create_hud_checklist_row(checklist_box, "1. Triple EMA Stack:", "Scanning...", COLOR_TEXT_MUTED)
         self.chk_value_zone = self._create_hud_checklist_row(checklist_box, "2. Value Zone Pullback:", "Scanning...", COLOR_TEXT_MUTED)
-        self.chk_pattern = self._create_hud_checklist_row(checklist_box, "3. Candlestick Trigger:", "Scanning...", COLOR_TEXT_MUTED)
-        self.chk_structure = self._create_hud_checklist_row(checklist_box, "4. Market Structure:", "Scanning...", COLOR_TEXT_MUTED)
-        self.chk_adx = self._create_hud_checklist_row(checklist_box, "5. ADX Trend Momentum:", "Scanning...", COLOR_TEXT_MUTED)
-        self.chk_snr_clear = self._create_hud_checklist_row(checklist_box, "6. SNR Obstacle Clearance:", "Scanning...", COLOR_TEXT_MUTED)
-        self.chk_htf = self._create_hud_checklist_row(checklist_box, "7. HTF Macro Confluence:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_fibo = self._create_hud_checklist_row(checklist_box, "3. Fibo Golden Pocket:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_rsi = self._create_hud_checklist_row(checklist_box, "4. RSI 14 Momentum:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_pattern = self._create_hud_checklist_row(checklist_box, "5. Candlestick Trigger:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_structure = self._create_hud_checklist_row(checklist_box, "6. Market Structure:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_adx = self._create_hud_checklist_row(checklist_box, "7. ADX Trend Momentum:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_snr_clear = self._create_hud_checklist_row(checklist_box, "8. SNR Obstacle Clearance:", "Scanning...", COLOR_TEXT_MUTED)
+        self.chk_htf = self._create_hud_checklist_row(checklist_box, "9. HTF Macro Confluence:", "Scanning...", COLOR_TEXT_MUTED)
 
         # Dynamic S/R Levels Box
         ctk.CTkFrame(hud, fg_color=COLOR_CARD_BORDER, height=1).pack(fill="x", padx=12, pady=6)
@@ -1045,30 +1054,66 @@ class TradingTerminalApp(ctk.CTk):
         container.pack(fill="both", expand=True, padx=4, pady=4)
 
         top_ctrl = ctk.CTkFrame(container, fg_color=COLOR_PANEL_SUB, height=48, corner_radius=6, border_width=1, border_color=COLOR_CARD_BORDER)
-        top_ctrl.pack(fill="x", padx=0, pady=(0, 8))
+        top_ctrl.pack(fill="x", padx=0, pady=(0, 6))
         top_ctrl.pack_propagate(False)
 
         ctk.CTkLabel(
             top_ctrl,
-            text="Simulasi Data Historis MT5:",
+            text="Simulasi Data:",
             font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
             text_color=COLOR_TEXT_PRIMARY
-        ).pack(side="left", padx=14, pady=10)
+        ).pack(side="left", padx=(10, 4), pady=10)
 
         self.opt_bars_count = ctk.CTkOptionMenu(
             top_ctrl,
             values=["500 Bars", "1000 Bars", "2000 Bars", "5000 Bars"],
-            width=135,
+            width=110,
             height=28,
             fg_color=COLOR_PANEL_BG,
             button_color=COLOR_CARD_BORDER
         )
         self.opt_bars_count.set("2000 Bars")
-        self.opt_bars_count.pack(side="left", padx=6, pady=10)
+        self.opt_bars_count.pack(side="left", padx=4, pady=10)
+
+        ctk.CTkLabel(
+            top_ctrl,
+            text="Mode:",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=COLOR_TEXT_PRIMARY
+        ).pack(side="left", padx=(8, 4), pady=10)
+
+        self.opt_bt_mode = ctk.CTkOptionMenu(
+            top_ctrl,
+            values=["Unconstrained (Bebas)", "Single Position (Realistis)"],
+            width=180,
+            height=28,
+            fg_color=COLOR_PANEL_BG,
+            button_color=COLOR_CARD_BORDER
+        )
+        self.opt_bt_mode.set("Unconstrained (Bebas)")
+        self.opt_bt_mode.pack(side="left", padx=4, pady=10)
+
+        ctk.CTkLabel(
+            top_ctrl,
+            text="Sesi:",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=COLOR_TEXT_PRIMARY
+        ).pack(side="left", padx=(8, 4), pady=10)
+
+        self.opt_bt_session = ctk.CTkOptionMenu(
+            top_ctrl,
+            values=["Semua Sesi", "London & NY Only"],
+            width=140,
+            height=28,
+            fg_color=COLOR_PANEL_BG,
+            button_color=COLOR_CARD_BORDER
+        )
+        self.opt_bt_session.set("Semua Sesi")
+        self.opt_bt_session.pack(side="left", padx=4, pady=10)
 
         self.btn_run_bt = ctk.CTkButton(
             top_ctrl,
-            text="▶ JALANKAN SIMULASI HISTORIS",
+            text="▶ JALANKAN SIMULASI",
             font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
             fg_color=COLOR_ACCENT_PURPLE,
             hover_color="#9333ea",
@@ -1080,19 +1125,23 @@ class TradingTerminalApp(ctk.CTk):
 
         self.lbl_bt_status = ctk.CTkLabel(
             top_ctrl,
-            text="Siap untuk simulasi data pasar",
+            text="Siap untuk simulasi",
             font=ctk.CTkFont(family=FONT_FAMILY, size=11),
             text_color=COLOR_TEXT_SECONDARY
         )
-        self.lbl_bt_status.pack(side="right", padx=16, pady=10)
+        self.lbl_bt_status.pack(side="right", padx=12, pady=10)
 
         bt_body = ctk.CTkFrame(container, fg_color="transparent")
         bt_body.pack(fill="both", expand=True)
 
-        chart_box = ctk.CTkFrame(bt_body, fg_color=COLOR_BG_DEEP, corner_radius=8, border_width=1, border_color=COLOR_CARD_BORDER)
+        # Upper row: Chart (Left) + Metrics (Right)
+        upper_panel = ctk.CTkFrame(bt_body, fg_color="transparent", height=280)
+        upper_panel.pack(fill="x", padx=0, pady=(0, 6))
+
+        chart_box = ctk.CTkFrame(upper_panel, fg_color=COLOR_BG_DEEP, corner_radius=8, border_width=1, border_color=COLOR_CARD_BORDER)
         chart_box.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-        self.fig_bt = Figure(figsize=(6.0, 3.4), dpi=100, facecolor=COLOR_BG_DEEP)
+        self.fig_bt = Figure(figsize=(6.0, 2.6), dpi=100, facecolor=COLOR_BG_DEEP)
         self.ax_bt = self.fig_bt.add_subplot(111)
         self.ax_bt.set_facecolor(COLOR_BG_DEEP)
         self.ax_bt.tick_params(colors=COLOR_TEXT_SECONDARY, labelsize=8)
@@ -1104,7 +1153,7 @@ class TradingTerminalApp(ctk.CTk):
         self.canvas_bt.get_tk_widget().pack(fill="both", expand=True, padx=4, pady=4)
 
         # Card Metrik Hasil Backtest
-        self.bt_metrics_frame = ctk.CTkFrame(bt_body, width=320, fg_color=COLOR_PANEL_SUB, corner_radius=8, border_width=1, border_color=COLOR_CARD_BORDER)
+        self.bt_metrics_frame = ctk.CTkFrame(upper_panel, width=320, fg_color=COLOR_PANEL_SUB, corner_radius=8, border_width=1, border_color=COLOR_CARD_BORDER)
         self.bt_metrics_frame.pack(side="right", fill="y")
         self.bt_metrics_frame.pack_propagate(False)
 
@@ -1113,7 +1162,7 @@ class TradingTerminalApp(ctk.CTk):
             text="METRIK KINERJA INSTITUSIONAL",
             font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
             text_color=COLOR_ACCENT_CYAN
-        ).pack(anchor="w", padx=14, pady=(12, 8))
+        ).pack(anchor="w", padx=14, pady=(8, 4))
 
         self.bt_m_net_profit = self._create_hud_data_row(self.bt_metrics_frame, "Net Profit:", "$0.00", COLOR_TEXT_PRIMARY)
         self.bt_m_winrate = self._create_hud_data_row(self.bt_metrics_frame, "Win Rate:", "0.0%", COLOR_TEXT_PRIMARY)
@@ -1121,7 +1170,35 @@ class TradingTerminalApp(ctk.CTk):
         self.bt_m_wins = self._create_hud_data_row(self.bt_metrics_frame, "Menang / Kalah:", "0 / 0", COLOR_TEXT_PRIMARY)
         self.bt_m_profit_factor = self._create_hud_data_row(self.bt_metrics_frame, "Profit Factor:", "0.00", COLOR_TEXT_PRIMARY)
         self.bt_m_max_dd = self._create_hud_data_row(self.bt_metrics_frame, "Max Drawdown:", "$0.00 (0.0%)", COLOR_TEXT_PRIMARY)
-        self.bt_m_expectancy = self._create_hud_data_row(self.bt_metrics_frame, "Expectancy / Trade:", "$0.00", COLOR_TEXT_PRIMARY)
+        self.bt_m_false_rate = self._create_hud_data_row(self.bt_metrics_frame, "False Signal Rate:", "0.0%", COLOR_TEXT_PRIMARY)
+        self.bt_m_false_count = self._create_hud_data_row(self.bt_metrics_frame, "False Sigs / Traps:", "0", COLOR_TEXT_PRIMARY)
+        self.bt_m_avg_mfe = self._create_hud_data_row(self.bt_metrics_frame, "Rata-rata Max R:", "0.00 R", COLOR_TEXT_PRIMARY)
+
+        # Lower panel: Tabel Audit Sinyal & Riwayat Trade
+        table_container = ctk.CTkFrame(bt_body, fg_color=COLOR_PANEL_SUB, corner_radius=8, border_width=1, border_color=COLOR_CARD_BORDER)
+        table_container.pack(fill="both", expand=True)
+
+        th_bar = ctk.CTkFrame(table_container, fg_color="transparent", height=26)
+        th_bar.pack(fill="x", padx=12, pady=(6, 2))
+        th_bar.pack_propagate(False)
+
+        ctk.CTkLabel(
+            th_bar,
+            text="📋 AUDIT DETAIL SEMUA TRANSAKSI & SINYAL (HISTORIS)",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text_color=COLOR_ACCENT_GOLD
+        ).pack(side="left")
+
+        self.lbl_bt_table_summary = ctk.CTkLabel(
+            th_bar,
+            text="0 Transaksi Terdata",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
+            text_color=COLOR_TEXT_SECONDARY
+        )
+        self.lbl_bt_table_summary.pack(side="right")
+
+        self.bt_trades_scroll = ctk.CTkScrollableFrame(table_container, fg_color=COLOR_BG_DEEP, corner_radius=6)
+        self.bt_trades_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
     # =========================================================================
     # 4. BOTTOM LOG DOCK CONSOLE
@@ -1626,9 +1703,30 @@ class TradingTerminalApp(ctk.CTk):
                     self.ax_main.axhline(p.tp, color=COLOR_ACCENT_GREEN, linestyle="--", linewidth=1.2, alpha=0.9)
                     self.ax_main.text(0.015, p.tp, f" #{p.ticket} TAKE PROFIT: ${p.tp:.2f}", transform=self.ax_main.get_yaxis_transform(), color=COLOR_ACCENT_GREEN, fontsize=7, weight="bold", va="bottom")
 
+        # Projected Entry Line jika belum ada open position
+        if not open_pos_list:
+            e8_last = plot_df['ema8'].iloc[-1]
+            e21_last = plot_df['ema21'].iloc[-1]
+            proj_entry = (e8_last + e21_last) / 2.0
+            self.ax_main.axhline(proj_entry, color=COLOR_ACCENT_GOLD, linestyle=":", linewidth=1.1, alpha=0.75)
+            self.ax_main.text(0.015, proj_entry, f" Projected Value Zone Entry: ${proj_entry:.2f}", transform=self.ax_main.get_yaxis_transform(), color=COLOR_ACCENT_GOLD, fontsize=7, va="bottom")
+
+        # Hitung Countdown Waktu Penutupan Candle
+        countdown_str = ""
+        try:
+            last_time = plot_df['time'].iloc[-1]
+            if isinstance(last_time, (pd.Timestamp, datetime)):
+                tf_secs = {"M1": 60, "M5": 300, "M15": 900, "M30": 1800, "H1": 3600, "H4": 14400}.get(self.cfg.timeframe, 300)
+                now_dt = datetime.now()
+                elapsed = (now_dt.timestamp() - last_time.timestamp()) % tf_secs
+                rem_sec = max(0, int(tf_secs - elapsed))
+                countdown_str = f" | ⏱ Candle Close: {rem_sec // 60:02d}:{rem_sec % 60:02d}"
+        except Exception:
+            pass
+
         # Judul & Legend Atas
         self.ax_main.set_title(
-            f"{self.real_symbol} [{self.cfg.timeframe}] — Candlestick Pro + Triple EMA & SNR Overlay",
+            f"{self.real_symbol} [{self.cfg.timeframe}] — Candlestick Pro + Triple EMA & SNR Overlay{countdown_str}",
             color=COLOR_TEXT_PRIMARY,
             fontsize=9,
             weight="bold",
@@ -1781,7 +1879,7 @@ class TradingTerminalApp(ctk.CTk):
         c0 = df.iloc[-2]
         c_prev = df.iloc[-3]
         score = 0
-        total_score = 7
+        total_score = 9
 
         # 1. Triple EMA Alignment (Bullish 8>21>125 atau Bearish 8<21<125)
         is_bull_trend = (c0['ema8'] > c0['ema21'] > c0['ema125']) and (c0['close'] > c0['ema125'])
@@ -1806,7 +1904,50 @@ class TradingTerminalApp(ctk.CTk):
         else:
             self.chk_value_zone.configure(text="[✗] OUTSIDE ZONE", text_color=COLOR_TEXT_MUTED)
 
-        # 3. Candlestick Pattern Trigger
+        # 3. Fibonacci Golden Pocket (OTE 50% - 78.6%)
+        if getattr(self.cfg, 'use_fibo_golden_zone', True):
+            if is_bull_trend:
+                in_fibo = is_in_fibo_golden_zone_buy(df, lookback=self.cfg.fibo_lookback_bars, min_retrace=self.cfg.fibo_min_retrace, max_retrace=self.cfg.fibo_max_retrace, shift=-2)
+                if in_fibo:
+                    score += 1
+                    self.chk_fibo.configure(text="[✓] IN OTE (50-78.6%)", text_color=COLOR_ACCENT_GOLD)
+                else:
+                    self.chk_fibo.configure(text="[✗] OUTSIDE OTE", text_color=COLOR_TEXT_MUTED)
+            elif is_bear_trend:
+                in_fibo = is_in_fibo_golden_zone_sell(df, lookback=self.cfg.fibo_lookback_bars, min_retrace=self.cfg.fibo_min_retrace, max_retrace=self.cfg.fibo_max_retrace, shift=-2)
+                if in_fibo:
+                    score += 1
+                    self.chk_fibo.configure(text="[✓] IN OTE (50-78.6%)", text_color=COLOR_ACCENT_GOLD)
+                else:
+                    self.chk_fibo.configure(text="[✗] OUTSIDE OTE", text_color=COLOR_TEXT_MUTED)
+            else:
+                self.chk_fibo.configure(text="[✗] SCANNING...", text_color=COLOR_TEXT_MUTED)
+        else:
+            score += 1
+            self.chk_fibo.configure(text="[✓] FILTER OFF", text_color=COLOR_TEXT_SECONDARY)
+
+        # 4. RSI 14 Momentum (Healthy 45-70 Buy / 30-55 Sell)
+        rsi_val = float(c0.get('rsi', 50.0))
+        if getattr(self.cfg, 'use_rsi_filter', True):
+            if is_bull_trend:
+                if self.cfg.rsi_buy_min <= rsi_val <= self.cfg.rsi_buy_max:
+                    score += 1
+                    self.chk_rsi.configure(text=f"[✓] HEALTHY ({rsi_val:.1f})", text_color=COLOR_ACCENT_GREEN)
+                else:
+                    self.chk_rsi.configure(text=f"[✗] {rsi_val:.1f} (NOT 45-70)", text_color=COLOR_ACCENT_RED)
+            elif is_bear_trend:
+                if self.cfg.rsi_sell_min <= rsi_val <= self.cfg.rsi_sell_max:
+                    score += 1
+                    self.chk_rsi.configure(text=f"[✓] HEALTHY ({rsi_val:.1f})", text_color=COLOR_ACCENT_RED)
+                else:
+                    self.chk_rsi.configure(text=f"[✗] {rsi_val:.1f} (NOT 30-55)", text_color=COLOR_ACCENT_RED)
+            else:
+                self.chk_rsi.configure(text=f"[✗] RSI {rsi_val:.1f}", text_color=COLOR_TEXT_MUTED)
+        else:
+            score += 1
+            self.chk_rsi.configure(text=f"[✓] OFF ({rsi_val:.1f})", text_color=COLOR_TEXT_SECONDARY)
+
+        # 5. Candlestick Pattern Trigger
         bp = detect_bullish_pattern(df, shift=-2)
         sp = detect_bearish_pattern(df, shift=-2)
         if bp != CandlePattern.NONE:
@@ -1818,7 +1959,7 @@ class TradingTerminalApp(ctk.CTk):
         else:
             self.chk_pattern.configure(text="[✗] NONE DETECTED", text_color=COLOR_TEXT_MUTED)
 
-        # 4. Market Structure (HH-HL atau LH-LL)
+        # 6. Market Structure (HH-HL atau LH-LL)
         struct = self.strategy.structure_analyzer.analyze_structure(df, shift=-2)
         if struct == MarketStructure.BULLISH_HH_HL:
             score += 1
@@ -1829,7 +1970,7 @@ class TradingTerminalApp(ctk.CTk):
         else:
             self.chk_structure.configure(text="[✗] RANGE / CHOP", text_color=COLOR_TEXT_MUTED)
 
-        # 5. ADX Momentum (>= 20)
+        # 7. ADX Momentum (>= 20)
         adx_val = c0.get('adx', 0.0)
         if adx_val >= self.cfg.min_adx_level:
             score += 1
@@ -1837,7 +1978,7 @@ class TradingTerminalApp(ctk.CTk):
         else:
             self.chk_adx.configure(text=f"[✗] WEAK ({adx_val:.1f})", text_color=COLOR_TEXT_MUTED)
 
-        # 6. SNR Obstacle Clearance
+        # 8. SNR Obstacle Clearance
         snap = self.latest_snr_snapshot
         if snap:
             if snap.nearest_resistance: self.hud_res.configure(text=f"${snap.nearest_resistance:.2f}")
@@ -1868,7 +2009,7 @@ class TradingTerminalApp(ctk.CTk):
         else:
             self.chk_snr_clear.configure(text="[✗] EVALUATING", text_color=COLOR_TEXT_MUTED)
 
-        # 7. HTF Macro Confluence
+        # 9. HTF Macro Confluence
         if not self.cfg.use_mtf_filter:
             score += 1
             self.chk_htf.configure(text="[✓] FILTER DISABLED", text_color=COLOR_TEXT_SECONDARY)
@@ -2053,7 +2194,13 @@ class TradingTerminalApp(ctk.CTk):
 
         bars_str = self.opt_bars_count.get()
         count = int(bars_str.split()[0])
-        self.lbl_bt_status.configure(text="Sedang memproses simulasi pasar...", text_color=COLOR_ACCENT_GOLD)
+        
+        mode_val = "UNCONSTRAINED" if "Unconstrained" in self.opt_bt_mode.get() else "SINGLE_POSITION"
+        session_val = "LONDON_NY" if "London" in self.opt_bt_session.get() else "ALL"
+        self.cfg.backtest_mode = mode_val
+        self.cfg.xau_session_filter = session_val
+
+        self.lbl_bt_status.configure(text=f"Simulasi ({mode_val})...", text_color=COLOR_ACCENT_GOLD)
         self.btn_run_bt.configure(state="disabled")
         threading.Thread(target=self._run_backtest_thread, args=(count,), daemon=True).start()
 
@@ -2070,7 +2217,7 @@ class TradingTerminalApp(ctk.CTk):
             report = bt.run(rates_df)
 
             self.after(0, lambda: self._display_backtest_results(bt, report))
-            self.log(f"[Backtester] Selesai! Win Rate: {report.get('win_rate_percent', 0)}% | Profit: ${report.get('net_profit', 0):,.2f}", "SUCCESS")
+            self.log(f"[Backtester] Selesai! Win Rate: {report.get('win_rate_percent', 0)}% | False Sig: {report.get('false_signal_rate_percent', 0)}% | Profit: ${report.get('net_profit', 0):,.2f}", "SUCCESS")
         except Exception as e:
             self.log(f"Error backtest: {e}", "ERROR")
         finally:
@@ -2083,14 +2230,20 @@ class TradingTerminalApp(ctk.CTk):
         self.bt_m_net_profit.configure(text=f"${report['net_profit']:,.2f}", text_color=profit_col)
         self.bt_m_winrate.configure(text=f"{report['win_rate_percent']}%", text_color=COLOR_ACCENT_GREEN if report['win_rate_percent'] >= 55 else COLOR_ACCENT_RED)
         self.bt_m_trades.configure(text=str(report['total_trades']))
-        self.bt_m_wins.configure(text=f"{report['winning_trades']} Win / {report['losing_trades']} Loss")
+        self.bt_m_wins.configure(text=f"{report['winning_trades']} Win / {report['losing_trades']} Loss ({report.get('bep_trades', 0)} BEP)")
         self.bt_m_profit_factor.configure(text=str(report['profit_factor']))
         self.bt_m_max_dd.configure(text=f"${report['max_drawdown_amount']:,.2f} ({report['max_drawdown_percent']}%)", text_color=COLOR_ACCENT_GOLD)
+
+        # Telemetri False Signal
+        false_pct = report.get('false_signal_rate_percent', 0.0)
+        false_col = COLOR_ACCENT_GREEN if false_pct <= 15.0 else COLOR_ACCENT_RED
+        self.bt_m_false_rate.configure(text=f"{false_pct}%", text_color=false_col)
+        self.bt_m_false_count.configure(text=f"{report.get('false_signals_count', 0)} ({report.get('normal_losses_count', 0)} Normal)")
+        self.bt_m_avg_mfe.configure(text=f"{report.get('avg_mfe_r', 0.0):.2f} R")
 
         # Expectancy
         total_tr = report['total_trades']
         exp_val = report['net_profit'] / total_tr if total_tr > 0 else 0.0
-        self.bt_m_expectancy.configure(text=f"${exp_val:,.2f}", text_color=profit_col)
 
         # Plot Kurva Modal
         self.ax_bt.clear()
@@ -2107,9 +2260,105 @@ class TradingTerminalApp(ctk.CTk):
         self.ax_bt.fill_between(x_bars, bt.initial_balance, eq_arr, where=(eq_arr >= bt.initial_balance), color=COLOR_ACCENT_GREEN, alpha=0.15)
         self.ax_bt.fill_between(x_bars, bt.initial_balance, eq_arr, where=(eq_arr < bt.initial_balance), color=COLOR_ACCENT_RED, alpha=0.15)
         self.ax_bt.axhline(bt.initial_balance, color=COLOR_TEXT_MUTED, linestyle=":", linewidth=1.0)
-        self.ax_bt.set_title(f"Equity Curve: Net Profit ${report['net_profit']:,.2f} ({report['win_rate_percent']}% Win Rate)", color=COLOR_TEXT_PRIMARY, fontsize=9, weight="bold")
+        self.ax_bt.set_title(f"Equity Curve: Net Profit ${report['net_profit']:,.2f} ({report['win_rate_percent']}% Win Rate | False Sig: {false_pct}%)", color=COLOR_TEXT_PRIMARY, fontsize=9, weight="bold")
         self.fig_bt.tight_layout()
         self.canvas_bt.draw()
+
+        # Render Tabel Riwayat Trade
+        for widget in self.bt_trades_scroll.winfo_children():
+            widget.destroy()
+
+        trades_list = report.get('trades_list', [])
+        self.lbl_bt_table_summary.configure(text=f"{len(trades_list)} Transaksi Terdata")
+
+        if not trades_list:
+            ctk.CTkLabel(
+                self.bt_trades_scroll,
+                text="Tidak ada transaksi yang dieksekusi pada rentang data ini.",
+                font=ctk.CTkFont(family=FONT_FAMILY, size=10),
+                text_color=COLOR_TEXT_SECONDARY
+            ).pack(pady=20)
+            return
+
+        # Header Bar
+        header_frame = ctk.CTkFrame(self.bt_trades_scroll, fg_color=COLOR_PANEL_SUB, height=26, corner_radius=4)
+        header_frame.pack(fill="x", padx=2, pady=(2, 4))
+        header_frame.pack_propagate(False)
+
+        cols = [
+            ("#", 35),
+            ("Waktu Buka", 115),
+            ("Tipe", 50),
+            ("Pola Candlestick", 160),
+            ("Sesi", 95),
+            ("Entry", 70),
+            ("SL", 70),
+            ("TP", 70),
+            ("Exit", 70),
+            ("Profit ($)", 75),
+            ("R:R", 50),
+            ("Status", 95)
+        ]
+
+        for title, width in cols:
+            ctk.CTkLabel(
+                header_frame,
+                text=title,
+                width=width,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+                text_color=COLOR_TEXT_SECONDARY,
+                anchor="center"
+            ).pack(side="left", padx=2)
+
+        # Populate Rows (Tampilkan 60 trade terbaru)
+        for t in trades_list[-60:]:
+            row_frame = ctk.CTkFrame(self.bt_trades_scroll, fg_color=COLOR_CARD_BG, height=24, corner_radius=3)
+            row_frame.pack(fill="x", padx=2, pady=1)
+            row_frame.pack_propagate(False)
+
+            status = t.get("status", "UNKNOWN")
+            if status == "WIN":
+                st_color = COLOR_ACCENT_GREEN
+                st_text = "WIN"
+            elif status == "BEP":
+                st_color = COLOR_ACCENT_CYAN
+                st_text = "BEP"
+            elif status == "FALSE_SIGNAL":
+                st_color = COLOR_ACCENT_RED
+                st_text = "FALSE SIG"
+            else:
+                st_color = COLOR_ACCENT_GOLD
+                st_text = "LOSS"
+
+            p_val = t.get("profit", 0.0)
+            p_color = COLOR_ACCENT_GREEN if p_val > 0 else (COLOR_ACCENT_RED if p_val < 0 else COLOR_TEXT_PRIMARY)
+            t_type = t.get("type", "BUY")
+            type_color = COLOR_ACCENT_GREEN if t_type == "BUY" else COLOR_ACCENT_RED
+
+            row_data = [
+                (str(t.get("ticket", "")), 35, COLOR_TEXT_MUTED),
+                (str(t.get("time", ""))[:16], 115, COLOR_TEXT_SECONDARY),
+                (t_type, 50, type_color),
+                (str(t.get("pattern", "")), 160, COLOR_TEXT_PRIMARY),
+                (str(t.get("session", "")), 95, COLOR_ACCENT_GOLD),
+                (f"{t.get('entry', 0):.2f}", 70, COLOR_TEXT_PRIMARY),
+                (f"{t.get('sl', 0):.2f}", 70, COLOR_TEXT_MUTED),
+                (f"{t.get('tp', 0):.2f}", 70, COLOR_TEXT_MUTED),
+                (f"{t.get('exit', 0):.2f}", 70, COLOR_TEXT_PRIMARY),
+                (f"${p_val:+,.2f}", 75, p_color),
+                (f"{t.get('r_multiple', 0):+.1f}R", 50, COLOR_TEXT_SECONDARY),
+                (st_text, 95, st_color)
+            ]
+
+            for val, width, col in row_data:
+                ctk.CTkLabel(
+                    row_frame,
+                    text=val,
+                    width=width,
+                    font=ctk.CTkFont(family=FONT_FAMILY, size=9),
+                    text_color=col,
+                    anchor="center"
+                ).pack(side="left", padx=2)
 
     # =========================================================================
     # 11. PARAMETER SYNC & DISK PERSISTENCE
@@ -2136,6 +2385,14 @@ class TradingTerminalApp(ctk.CTk):
         self.cfg.use_daily_loss_limit = bool(self.switch_cb.get())
         self.cfg.use_friday_close = bool(self.switch_friday.get())
         self.cfg.use_mtf_filter = bool(self.switch_mtf.get())
+        if hasattr(self, 'switch_shock'):
+            self.cfg.use_fundamental_shock_filter = bool(self.switch_shock.get())
+        if hasattr(self, 'switch_fibo'):
+            self.cfg.use_fibo_golden_zone = bool(self.switch_fibo.get())
+        if hasattr(self, 'switch_rsi'):
+            self.cfg.use_rsi_filter = bool(self.switch_rsi.get())
+        if hasattr(self, 'switch_fvg'):
+            self.cfg.use_fvg_filter = bool(self.switch_fvg.get())
 
     def _apply_inputs_to_config(self):
         try:

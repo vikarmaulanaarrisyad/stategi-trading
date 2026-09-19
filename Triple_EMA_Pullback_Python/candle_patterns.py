@@ -30,6 +30,14 @@ class CandlePattern(Enum):
     BEARISH_DOJI = 16
     BEARISH_INSIDE_BAR = 17
     BEARISH_TWO_CANDLE_REJECTION = 18
+    
+    # Pola Momentum Breakout (19 - 20)
+    MOMENTUM_BREAKOUT_BUY = 19
+    MOMENTUM_BREAKOUT_SELL = 20
+
+    # Pola SMC Institutional (21 - 22)
+    SMC_INSTITUTIONAL_BUY = 21
+    SMC_INSTITUTIONAL_SELL = 22
 
 def get_pattern_name(pattern: CandlePattern) -> str:
     """Mengembalikan deskripsi nama pola candlestick."""
@@ -43,6 +51,8 @@ def get_pattern_name(pattern: CandlePattern) -> str:
         CandlePattern.BULLISH_DOJI: "Bullish Doji Rejection",
         CandlePattern.BULLISH_INSIDE_BAR: "Bullish Inside Bar Breakout",
         CandlePattern.BULLISH_TWO_CANDLE_REJECTION: "Two Candle Bullish Rejection",
+        CandlePattern.MOMENTUM_BREAKOUT_BUY: "Momentum Breakout (Local High)",
+        CandlePattern.SMC_INSTITUTIONAL_BUY: "SMC Institutional (SSL Sweep / Discount)",
         
         CandlePattern.SHOOTING_STAR: "Shooting Star (Bearish Rejection)",
         CandlePattern.BEARISH_PINBAR: "Bearish Pin Bar",
@@ -53,6 +63,8 @@ def get_pattern_name(pattern: CandlePattern) -> str:
         CandlePattern.BEARISH_DOJI: "Bearish Doji Rejection",
         CandlePattern.BEARISH_INSIDE_BAR: "Bearish Inside Bar Breakdown",
         CandlePattern.BEARISH_TWO_CANDLE_REJECTION: "Two Candle Bearish Rejection",
+        CandlePattern.MOMENTUM_BREAKOUT_SELL: "Momentum Breakout (Local Low)",
+        CandlePattern.SMC_INSTITUTIONAL_SELL: "SMC Institutional (BSL Sweep / Premium)",
         CandlePattern.NONE: "No Pattern"
     }
     return names.get(pattern, "No Pattern")

@@ -1,0 +1,1074 @@
+//@version=6
+// ==============================================================================
+// Author: Vikar Strategy
+// Name: VIKAR - 4-Pillar Unified Strategy: SMC Core + S/R + Triple EMA + Fibonacci Pro
+// Description: Smart Money Concepts (BOS/CHoCH, Liquidity Sweeps, Fractals) as Core,
+//              Triple EMA (8, 21, 125) with Dynamic Ribbon & Trailing Stop,
+//              Support & Resistance (Multi-Timeframe Pivot Points & 3 Key Levels),
+//              Auto-Fibonacci Retracement & Golden Pocket (0.500, 0.618, 0.786) & Extensions,
+//              18-Candlestick Pullback Rejection Signals, Clean Chart Mode, HUD Dashboard, and Alerts.
+// Language: Pine Script v6
+// ==============================================================================
+
+indicator("VIKAR - 4-Pillar Strategy [SMC + S/R + EMA + Fibo] Pro", "VIKAR 4-Pillar Pro", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ==============================================================================
+// 1. TRIPLE EMA INPUTS & SETTINGS (SOP VIKAR)
+// ==============================================================================
+string GRP_EMA       = "Triple Exponential Moving Averages (EMA)"
+series float srcEMA  = input.source(close,        "EMA Price Source",             group = GRP_EMA)
+
+bool   showEma8      = input.bool(true,           "",                             inline = "ema1", group = GRP_EMA)
+int    lenEma8       = input.int(8,               "EMA Fast (8)   ",              inline = "ema1", minval = 1, group = GRP_EMA)
+color  colEma8       = input.color(#00E5FF,       "",                             inline = "ema1", group = GRP_EMA) // Cyan Electric
+int    wEma8         = input.int(2,               "Width",                        inline = "ema1", minval = 1, maxval = 4, group = GRP_EMA)
+
+bool   showEma21     = input.bool(true,           "",                             inline = "ema2", group = GRP_EMA)
+int    lenEma21      = input.int(21,              "EMA Mid (21)   ",               inline = "ema2", minval = 1, group = GRP_EMA)
+color  colEma21      = input.color(#FF007F,       "",                             inline = "ema2", group = GRP_EMA) // Magenta / Fuchsia
+int    wEma21        = input.int(2,               "Width",                        inline = "ema2", minval = 1, maxval = 4, group = GRP_EMA)
+
+bool   showEma125    = input.bool(true,           "",                             inline = "ema3", group = GRP_EMA)
+int    lenEma125     = input.int(125,             "EMA Trend (125)",              inline = "ema3", minval = 1, group = GRP_EMA)
+color  colEma125     = input.color(#FFFFFF,       "",                             inline = "ema3", group = GRP_EMA) // White Institutional Baseline
+int    wEma125       = input.int(3,               "Width",                        inline = "ema3", minval = 1, maxval = 4, group = GRP_EMA)
+
+bool   showValueZone = input.bool(true,           "Highlight 8-21 Pullback Zone", group = GRP_EMA, tooltip = "Memberikan shading warna antara EMA 8 dan 21 sebagai Value Zone pullback.")
+
+// ==============================================================================
+// 2. TRIPLE EMA CALCULATIONS & PLOTS
+// ==============================================================================
+float ema8   = ta.ema(srcEMA, lenEma8)
+float ema21  = ta.ema(srcEMA, lenEma21)
+float ema125 = ta.ema(srcEMA, lenEma125)
+
+pEma8   = plot(showEma8   ? ema8   : na, "EMA Fast (8)",   color = colEma8,   linewidth = wEma8)
+pEma21  = plot(showEma21  ? ema21  : na, "EMA Mid (21)",   color = colEma21,  linewidth = wEma21)
+plot(showEma125 ? ema125 : na, "EMA Trend (125)", color = colEma125, linewidth = wEma125)
+
+// Fill Value Zone (Pullback Ribbon antara EMA 8 dan EMA 21)
+color fillBullish = color.new(#00E5FF, 85)
+color fillBearish = color.new(#FF007F, 85)
+color zoneColor   = ema8 >= ema21 ? fillBullish : fillBearish
+fill(pEma8, pEma21, color = (showValueZone and showEma8 and showEma21) ? zoneColor : na, title = "EMA 8-21 Value Zone")
+
+// ==============================================================================
+// 3. PIVOT POINTS CONFIGURATION & INPUTS
+// ==============================================================================
+string TT_DB = (
+    "When not selected, the indicator uses intraday data instead of EOD data on intraday charts. If the chart includes "
+    + "data from extended hours, the pivot level calculation takes that data into account. If intraday OHLC values "
+    + "differ from EOD values (normal for stocks), the calculated pivot levels will also differ."
+)
+DW = display.data_window
+
+string GRP_PIV_CFG              = "Pivot General Settings"
+string pivotTypeInput           = input.string("Traditional", "Type",                   options = ["Traditional", "Fibonacci", "Woodie", "Classic", "DM", "Camarilla"], group = GRP_PIV_CFG)
+string pivotAnchorInput         = input.string("Auto",        "Pivots timeframe",       options = ["Auto", "Daily", "Weekly", "Monthly", "Quarterly", "Yearly", "Biyearly", "Triyearly", "Quinquennially", "Decennially"], group = GRP_PIV_CFG)
+bool   isDailyBasedInput        = input.bool(true,            "Use daily-based values", tooltip = TT_DB, group = GRP_PIV_CFG, display = DW)
+
+string GRP_CLEAN                = "Pivot Clean Chart Mode"
+bool   onlyCurrentPivot         = input.bool(true,            "Hanya Pivot Periode Aktif (Clean Chart)", group = GRP_CLEAN, tooltip = "Hanya menampilkan garis pivot yang sedang aktif berjalan sehingga chart tidak penuh dengan garis historis lama.")
+bool   extendCurrentLines       = input.bool(true,            "Panjangkan Garis ke Kanan (Extend Right)", group = GRP_CLEAN, tooltip = "Garis level pivot aktif diperpanjang ke kanan melintasi bar harga.")
+int    maxHistoricalPivotsInput = input.int(15,               "Number of historical pivots back", 1, 200, group = GRP_CLEAN, display = DW, active = not onlyCurrentPivot)
+
+string GRP01                    = "Pivot Labels"
+bool   showLabelsInput          = input.bool(true,            "Show labels",            group   = GRP01, display = DW)
+bool   showPricesInput          = input.bool(true,            "Show prices",            group   = GRP01, display = DW)
+string positionLabelsInput      = input.string("Left",        "Labels position",        options = ["Left", "Right"], group = GRP01, display = DW, active = showLabelsInput or showPricesInput)
+
+color DEFAULT_COLOR  = #fb8c00
+bool  showLevel2and3 = pivotTypeInput != "DM"
+bool  showLevel4     = pivotTypeInput != "DM" and pivotTypeInput != "Fibonacci"
+bool  showLevel5     = pivotTypeInput == "Traditional" or pivotTypeInput == "Camarilla"
+
+string GRP02          = "Pivot Levels"
+int    linewidthInput = input.int(1,               "Line width", 1, 100,        group = GRP02, display = DW)
+color  pColorInput    = input.color(DEFAULT_COLOR, "P ",         inline = "10", group = GRP02, display = DW)
+bool   pShowInput     = input.bool(true,           "",           inline = "10", group = GRP02, display = DW)
+color  s1ColorInput   = input.color(DEFAULT_COLOR, "S1",         inline = "02", group = GRP02, display = DW)
+bool   s1ShowInput    = input.bool(true,           "",           inline = "02", group = GRP02, display = DW)
+color  r1ColorInput   = input.color(DEFAULT_COLOR, "   R1",      inline = "02", group = GRP02, display = DW)
+bool   r1ShowInput    = input.bool(true,           "",           inline = "02", group = GRP02, display = DW)
+color  s2ColorInput   = input.color(DEFAULT_COLOR, "S2",         inline = "03", group = GRP02, display = DW, active = showLevel2and3)
+bool   s2ShowInput    = input.bool(true,           "",           inline = "03", group = GRP02, display = DW, active = showLevel2and3)
+color  r2ColorInput   = input.color(DEFAULT_COLOR, "   R2",      inline = "03", group = GRP02, display = DW, active = showLevel2and3)
+bool   r2ShowInput    = input.bool(true,           "",           inline = "03", group = GRP02, display = DW, active = showLevel2and3)
+color  s3ColorInput   = input.color(DEFAULT_COLOR, "S3",         inline = "04", group = GRP02, display = DW, active = showLevel2and3)
+bool   s3ShowInput    = input.bool(true,           "",           inline = "04", group = GRP02, display = DW, active = showLevel2and3)
+color  r3ColorInput   = input.color(DEFAULT_COLOR, "   R3",      inline = "04", group = GRP02, display = DW, active = showLevel2and3)
+bool   r3ShowInput    = input.bool(true,           "",           inline = "04", group = GRP02, display = DW, active = showLevel2and3)
+color  s4ColorInput   = input.color(DEFAULT_COLOR, "S4",         inline = "05", group = GRP02, display = DW, active = showLevel4)
+bool   s4ShowInput    = input.bool(true,           "",           inline = "05", group = GRP02, display = DW, active = showLevel4)
+color  r4ColorInput   = input.color(DEFAULT_COLOR, "   R4",      inline = "05", group = GRP02, display = DW, active = showLevel4)
+bool   r4ShowInput    = input.bool(true,           "",           inline = "05", group = GRP02, display = DW, active = showLevel4)
+color  s5ColorInput   = input.color(DEFAULT_COLOR, "S5",         inline = "06", group = GRP02, display = DW, active = showLevel5)
+bool   s5ShowInput    = input.bool(true,           "",           inline = "06", group = GRP02, display = DW, active = showLevel5)
+color  r5ColorInput   = input.color(DEFAULT_COLOR, "   R5",      inline = "06", group = GRP02, display = DW, active = showLevel5)
+bool   r5ShowInput    = input.bool(true,           "",           inline = "06", group = GRP02, display = DW, active = showLevel5)
+
+// ==============================================================================
+// 4. STRUKTUR PASAR SMC (BOS & CHOCH) & SINYAL PULLBACK
+// ==============================================================================
+string GRP_SMC          = "Struktur Pasar SMC (BOS & CHoCH)"
+bool   showStructure    = input.bool(true,  "Tampilkan Garis & Label BOS / CHoCH", group = GRP_SMC)
+bool   showSwingLabels  = input.bool(true,  "Tampilkan Label Swing (HH, HL, LH, LL)", group = GRP_SMC, tooltip = "Menandai titik fractal ayunan dengan label HH (Higher High), HL (Higher Low), LH (Lower High), LL (Lower Low).")
+bool   showActiveSwings = input.bool(true,  "Tampilkan Garis Swing Terakhir (Level Aktif)", group = GRP_SMC, tooltip = "Menampilkan garis horizontal pada level Swing High dan Swing Low terbaru yang sedang aktif.")
+int    structLookback   = input.int(5,      "Lookback Swing Structure", minval = 2, maxval = 20, group = GRP_SMC, tooltip = "Ukuran ayunan fractal untuk menentukan Swing High & Swing Low (default: 5 sangat ideal untuk M5/M15).")
+bool   requireStructure = input.bool(true,  "Wajib Searah Struktur (BOS / CHoCH)", group = GRP_SMC, tooltip = "Sinyal BUY hanya boleh muncul jika struktur pasar Bullish (setelah BOS/CHoCH Bullish), dan sinyal SELL hanya jika struktur Bearish.")
+color  colBullStruct    = input.color(#00E5FF, "Warna Bullish Structure", group = GRP_SMC)
+color  colBearStruct    = input.color(#FF007F, "Warna Bearish Structure", group = GRP_SMC)
+
+// ==============================================================================
+// 4B. AUTO FIBONACCI RETRACEMENT & GOLDEN POCKET (SMC SWINGS)
+// ==============================================================================
+string GRP_FIBO         = "Auto Fibonacci & Golden Pocket (SMC Swings)"
+bool   showAutoFibo     = input.bool(true,  "Tampilkan Auto Fibonacci di Chart", group = GRP_FIBO, tooltip = "Menampilkan garis level Fibonacci yang otomatis dihitung dari Swing Low ke Swing High (atau sebaliknya) struktur SMC aktif.")
+string fiboDisplayMode  = input.string("Minimalis Golden Pocket (Sangat Bersih)", "Mode Tampilan Fibo di Chart", options = ["Minimalis Golden Pocket (Sangat Bersih)", "Lengkap (Semua Garis)"], group = GRP_FIBO, tooltip = "Minimalis (Rekomendasi Pro): Hanya menampilkan shading Golden Pocket (0.500-0.786), garis emas 0.618, dan target TP ekstensi. Menghilangkan garis Fibo 0.000 dan 1.000 yang menimpa garis Swing agar chart bersih dan tidak bertumpuk.")
+bool   showFiboGpBox    = input.bool(true,  "Shading Area Golden Pocket (0.500 - 0.786)", group = GRP_FIBO, tooltip = "Memberikan shading warna emas/amber transparan pada zona Golden Pocket di antara level 0.500 dan 0.786.")
+bool   showFiboExt      = input.bool(true,  "Tampilkan Target Ekstensi (-0.272 & -0.618)", group = GRP_FIBO, tooltip = "Menampilkan garis target profit institusional ekstensi Fibonacci.")
+color  colFiboGp        = input.color(#F59E0B, "Warna Golden Pocket (Amber/Emas)", group = GRP_FIBO)
+color  colFiboLine      = input.color(#94A3B8, "Warna Garis Fibonacci", group = GRP_FIBO)
+bool   filterFiboGp     = input.bool(false, "Filter Wajib di Golden Pocket (Ekstra Ketat)", group = GRP_FIBO, tooltip = "Jika dicentang, sinyal pullback HANYA akan muncul jika harga rejection benar-benar berada di dalam zona Golden Pocket (0.500 s/d 0.786).")
+
+string GRP_SIG          = "Sinyal Pullback & Candlestick Rejection"
+bool   enableSignals    = input.bool(true,  "Aktifkan Sinyal BUY / SELL",          group = GRP_SIG)
+bool   showSignalVisuals= input.bool(false, "Tampilkan Tanda BUY / SELL di Chart",  group = GRP_SIG, tooltip = "Jika dimatikan (false/default), seluruh tanda visual panah/balon BUY dan SELL di chart disembunyikan agar grafik bersih dan jernih. Sinyal tetap dihitung untuk Dashboard HUD dan Alert.")
+bool   showBuySignals   = input.bool(true,  "Tampilkan Tanda BUY",                 inline = "sig_dir", group = GRP_SIG)
+bool   showSellSignals  = input.bool(true,  "Tampilkan Tanda SELL",                inline = "sig_dir", group = GRP_SIG)
+bool   hideBuyText      = input.bool(true,  "Sembunyikan Tulisan BUY",             group = GRP_SIG, tooltip = "Menghilangkan teks tulisan 'Buy'/'BUY' dari balon sinyal dan panah agar chart lebih bersih dan minimalis.")
+string signalVisualMode = input.string("Sembunyikan Tanda (Hidden / Bersih)", "Gaya Tampilan Sinyal", options = ["Sembunyikan Tanda (Hidden / Bersih)", "Balon Tombol Modern (Persis Gambar)", "Panah Standar + Label Pola", "Keduanya"], group = GRP_SIG, tooltip = "Pilih 'Sembunyikan Tanda (Hidden / Bersih)' untuk menyembunyikan semua tanda sinyal BUY/SELL di chart.")
+string bubbleSizeInput  = input.string("Small", "Ukuran Balon Sinyal",             options = ["Tiny", "Small", "Normal"], group = GRP_SIG)
+color  colBuyBubble     = input.color(#16a34a, "Warna Balon Buy (Hijau)",          inline = "bcol", group = GRP_SIG)
+color  colSellBubble    = input.color(#dc2626, "Warna Balon Sell (Merah)",          inline = "bcol", group = GRP_SIG)
+bool   showPatternSubtext= input.bool(false, "Sertakan Nama Pola di Balon",       group = GRP_SIG, tooltip = "Jika dicentang, balon akan bertuliskan misal 'Buy\\nHammer'. Jika tidak, hanya 'Buy' dan 'Sell' murni persis gambar.")
+bool   enableRangeSignals= input.bool(true,  "Aktifkan Sinyal di Support/Resist/Pivot", group = GRP_SIG, tooltip = "Memunculkan sinyal Buy di lantai Terendah Support dan Sell di atap Tertinggi Resistance persis seperti di gambar referensi.")
+string signalMode       = input.string("Bar Close (Zero Repaint - Akun Real)", "Mode Konfirmasi Sinyal", options = ["Bar Close (Zero Repaint - Akun Real)", "Intra-Bar Agresif"], group = GRP_SIG, tooltip = "Rekomendasi Akun Real: Bar Close. Sinyal hanya terkunci resmi saat candle ditutup sehingga 100% Zero Repaint dan tidak ada label duplikat.")
+bool   showPatternLabel = input.bool(true,  "Tampilkan Label Nama Pola Candle",    group = GRP_SIG)
+int    cooldownBars     = input.int(3,      "Jeda Antar Sinyal (Bars Cooldown)",   minval = 1, maxval = 20, group = GRP_SIG)
+bool   useAtrFilter     = input.bool(true,  "Filter Volatilitas Minimal (ATR)",    group = GRP_SIG, tooltip = "Mengabaikan lilin-lilin kerdil saat pasar sideways/sepi yang rawan memicu sinyal palsu.")
+float  minAtrRatio      = input.float(0.40, "Minimal Ukuran Candle (x ATR 14)",    minval = 0.1, maxval = 2.0, step = 0.05, group = GRP_SIG)
+float  rrRatio          = input.float(2.0,  "Target Risk to Reward (R:R)",         minval = 1.0, maxval = 5.0, step = 0.5, group = GRP_SIG, tooltip = "Rasio Risk:Reward default trader profesional (1:2).")
+bool   showRiskBoxes    = input.bool(false, "Tampilkan Kotak Visual SL / TP di Chart", group = GRP_SIG, tooltip = "Menampilkan kotak hijau (TP) dan merah (SL) langsung di chart seperti visual profesional.")
+string slMethod         = input.string("Structure Swing (Rekomendasi Pro)", "Metode Penempatan Stop Loss", options = ["Structure Swing (Rekomendasi Pro)", "Candle Wick + ATR"], group = GRP_SIG, tooltip = "Structure Swing menaruh SL di balik puncak/lembah fractal swing terdekat. Ini standar emas trader institusi agar SL tidak tersapu oleh noise wick.")
+float  slAtrBuffer      = input.float(1.2,  "Buffer Tambahan SL (x ATR)",          minval = 0.5, maxval = 3.0, step = 0.1, group = GRP_SIG, tooltip = "Pada Gold (XAUUSD) M5/M15, buffer 1.0 - 1.5 ATR sangat krusial untuk menahan pelebaran spread dan liquidity sweep.")
+bool   useOverextendFltr= input.bool(true,  "Filter Anti-Pucuk/Lembah (Max Jarak)",group = GRP_SIG, tooltip = "Mencegah BUY di pucuk atau SELL di lembah saat harga sudah terlempar terlalu jauh dari EMA 125 (anti mean-reversion trap).")
+float  maxDistEma125    = input.float(2.5,  "Maksimal Jarak ke EMA 125 (x ATR)",   minval = 1.0, maxval = 6.0, step = 0.5, group = GRP_SIG)
+bool   requireEmaSlope  = input.bool(true,  "Filter Kemiringan EMA 125 (Trend Slope)", group = GRP_SIG, tooltip = "Memastikan EMA 125 benar-benar mengarah ke atas untuk BUY, atau mengarah ke bawah untuk SELL (menghindari pasar sideways datar).")
+bool   filterPivotConf  = input.bool(false, "Filter Wajib Dekat Pivot Point",     group = GRP_SIG, tooltip = "Jika aktif, sinyal hanya valid jika harga juga memantul di dekat level Pivot Point (Konfluensi Ganda).")
+float  pivotProximity   = input.float(0.8,  "Toleransi Jarak Pivot (x ATR)",       minval = 0.2, maxval = 2.0, step = 0.1, group = GRP_SIG)
+bool   usePivotHeadroom = input.bool(true,  "Filter Ruang Target Pivot (Headroom)", group = GRP_SIG, tooltip = "Mencegah BUY jika ada Pivot Resisten terlalu dekat di atas (< 0.8x ATR), atau SELL jika ada Pivot Support terlalu dekat di bawah.")
+float  minHeadroomAtr   = input.float(0.8,  "Minimal Jarak ke Pivot Penghalang",   minval = 0.3, maxval = 2.0, step = 0.1, group = GRP_SIG)
+
+string GRP_3LVL          = "3 Level Kunci Range (Persis Gambar)"
+bool   show3Levels       = input.bool(true,  "Tampilkan 3 Level Kunci (Tertinggi, Pivot, Terendah)", group = GRP_3LVL, tooltip = "Menampilkan 3 level kunci persis seperti gambar: Tertinggi (Resistance), Pivot (Garis Biru), dan Terendah (Support).")
+color  colLvlResist      = input.color(#787b86, "Warna Tertinggi (Resistance)",    inline = "l1", group = GRP_3LVL)
+color  colLvlPivot       = input.color(#2962FF, "Warna Pivot (Biru)",              inline = "l2", group = GRP_3LVL)
+color  colLvlSupp        = input.color(#787b86, "Warna Terendah (Support)",        inline = "l3", group = GRP_3LVL)
+bool   showLevelShading  = input.bool(true,  "Tampilkan Shading Zona Abu-Abu",     group = GRP_3LVL)
+
+string GRP_HUD          = "HUD Dashboard Status Table"
+bool   showDashboard    = input.bool(true,  "Tampilkan HUD Table",                 group = GRP_HUD)
+string hudPosition      = input.string("Bottom Right", "Posisi Dashboard",         options = ["Top Right", "Bottom Right", "Bottom Left", "Top Left"], group = GRP_HUD)
+string hudSizeInput     = input.string("Small", "Ukuran Dashboard",                options = ["Tiny", "Small", "Normal"], group = GRP_HUD)
+
+
+
+// ==============================================================================
+// 5. PIVOT POINTS ENGINE
+// ==============================================================================
+type graphicSettings
+    string levelName
+    color  levelColor
+    bool   showLevel
+
+type pivotGraphic
+    line  pivotLine
+    label pivotLabel
+
+var array<graphicSettings> graphicSettingsArray = array.from(
+    graphicSettings.new(" P", pColorInput,  pShowInput),
+    graphicSettings.new("R1", r1ColorInput, r1ShowInput), graphicSettings.new("S1", s1ColorInput, s1ShowInput),
+    graphicSettings.new("R2", r2ColorInput, r2ShowInput), graphicSettings.new("S2", s2ColorInput, s2ShowInput),
+    graphicSettings.new("R3", r3ColorInput, r3ShowInput), graphicSettings.new("S3", s3ColorInput, s3ShowInput),
+    graphicSettings.new("R4", r4ColorInput, r4ShowInput), graphicSettings.new("S4", s4ColorInput, s4ShowInput),
+    graphicSettings.new("R5", r5ColorInput, r5ShowInput), graphicSettings.new("S5", s5ColorInput, s5ShowInput)
+)
+
+// Auto Anchor yang presisi: M1 sampai H1 (<= 3600 detik) menggunakan Daily ("1D")
+var string autoAnchor = switch
+    timeframe.isintraday => timeframe.in_seconds() <= 3600 ? (isDailyBasedInput ? "1D" : "1440") : "1W"
+    timeframe.isdaily    => "1M"
+    => "12M"
+
+var string pivotTimeframe = switch pivotAnchorInput
+    "Auto"      => autoAnchor
+    "Daily"     => isDailyBasedInput ? "1D" : "1440"
+    "Weekly"    => "1W"
+    "Monthly"   => "1M"
+    "Quarterly" => "3M"
+    => "12M"
+
+var int pivotYearMultiplier = switch pivotAnchorInput
+    "Biyearly"       => 2
+    "Triyearly"      => 3
+    "Quinquennially" => 5
+    "Decennially"    => 10
+    => 1
+
+var matrix<pivotGraphic> drawnGraphics = matrix.new<pivotGraphic>()
+
+pivotTimeframeChangeCounter(bool condition) =>
+    var int count = 0
+    if condition and bar_index > 0
+        count += 1
+    count
+
+method delete(pivotGraphic graphic) =>
+    graphic.pivotLine.delete()
+    graphic.pivotLabel.delete()
+
+// Kalkulasi Pivot Point bebas bug pergantian periode higher timeframe
+calculatePivots(simple bool isDailyBased) =>
+    if isDailyBased
+        [pivotPointsArrayStatic, pivotPointsArrayDeveloping, pivotCounter] = request.security(
+            ticker.modify(syminfo.tickerid, settlement_as_close = settlement_as_close.on),
+            pivotTimeframe, [
+                ta.pivot_point_levels(pivotTypeInput, timeframe.change(timeframe.period) and year(time_tradingday, syminfo.timezone) % pivotYearMultiplier == 0),
+                ta.pivot_point_levels(pivotTypeInput, timeframe.change(timeframe.period) and year(time_tradingday, syminfo.timezone) % pivotYearMultiplier == 0, developing = pivotTypeInput != "Woodie"),
+                pivotTimeframeChangeCounter(timeframe.change(timeframe.period) and year(time_tradingday, syminfo.timezone) % pivotYearMultiplier == 0)
+            ], lookahead = barmerge.lookahead_on
+        )
+        [pivotPointsArrayStatic, pivotPointsArrayDeveloping, pivotCounter]
+    else
+        bool pivotTimeframeChange = (
+            timeframe.change(pivotTimeframe) and year(time_tradingday, syminfo.timezone) % pivotYearMultiplier == 0
+        )
+        array<float> pivotPointsArrayStatic = ta.pivot_point_levels(pivotTypeInput, pivotTimeframeChange)
+        array<float> pivotPointsArrayDeveloping = ta.pivot_point_levels(
+            pivotTypeInput, pivotTimeframeChange, developing = pivotTypeInput != "Woodie"
+        )
+        int pivotCounter = pivotTimeframeChangeCounter(pivotTimeframeChange)
+        [pivotPointsArrayStatic, pivotPointsArrayDeveloping, pivotCounter]
+
+affixOldPivots(int endTime) =>
+    int rows = drawnGraphics.rows()
+    if rows > 0
+        array<pivotGraphic> lastGraphics = drawnGraphics.row(rows - 1)
+        for graphic in lastGraphics
+            if not (onlyCurrentPivot and extendCurrentLines)
+                graphic.pivotLine.set_x2(endTime)
+            if positionLabelsInput == "Right" and not (onlyCurrentPivot and extendCurrentLines)
+                graphic.pivotLabel.set_x(endTime)
+
+drawNewPivots(int startTime, array<float> pivotPointsArray) =>
+    // Jika Clean Chart Mode aktif: bersihkan semua garis periode lama
+    if onlyCurrentPivot
+        while drawnGraphics.rows() > 0
+            array<pivotGraphic> oldGraphics = drawnGraphics.remove_row(0)
+            for graphic in oldGraphics
+                graphic.delete()
+
+    array<pivotGraphic> newGraphics = array.new<pivotGraphic>()
+    int endTime = startTime + timeframe.in_seconds(pivotTimeframe) * 1000 * pivotYearMultiplier
+    int labelPosition = positionLabelsInput == "Left" ? startTime : endTime
+    string labelStyle = positionLabelsInput == "Left" ? label.style_label_right : label.style_label_left
+        
+    for [index, level] in pivotPointsArray
+        graphicSettings levelSettings = graphicSettingsArray.get(index)
+        if not na(level) and levelSettings.showLevel
+            line pivotLine = line.new(
+                startTime, level, endTime, level, xloc = xloc.bar_time, color = levelSettings.levelColor,
+                width = linewidthInput, extend = (onlyCurrentPivot and extendCurrentLines) ? extend.right : extend.none
+            )
+            label pivotLabel = label.new(
+                labelPosition, level,
+                (showLabelsInput ? levelSettings.levelName + " " : "")
+                + (showPricesInput ? "(" + str.tostring(level, format.mintick) + ")" : ""),
+                style = labelStyle, textcolor = levelSettings.levelColor, color = #00000000, xloc = xloc.bar_time
+            )
+            newGraphics.push(pivotGraphic.new(pivotLine, pivotLabel))
+            
+    if newGraphics.size() > 0
+        drawnGraphics.add_row(array_id = newGraphics)
+        if not onlyCurrentPivot and drawnGraphics.rows() > maxHistoricalPivotsInput
+            array<pivotGraphic> oldGraphics = drawnGraphics.remove_row(0)
+            for graphic in oldGraphics
+                graphic.delete()
+
+[pivotPointsArrayStatic, pivotPointsArrayDeveloping, pivotCount] = calculatePivots(isDailyBasedInput)
+
+var bool skipNextPivots = false
+if barstate.islast and barstate.isconfirmed and pivotTypeInput != "Woodie"
+    int nextBarOpenTime = time("", bars_back = -1)
+    int nextPivotStartTime = time(pivotTimeframe, timeframe_bars_back = -1)
+    if nextBarOpenTime >= nextPivotStartTime
+        affixOldPivots(nextPivotStartTime)
+        drawNewPivots(nextPivotStartTime, pivotPointsArrayDeveloping)
+        skipNextPivots := true
+if pivotCount != pivotCount[1]
+    if skipNextPivots
+        skipNextPivots := false
+    else
+        affixOldPivots(time)
+        drawNewPivots(time, pivotPointsArrayStatic)
+else if drawnGraphics.rows() > 0 and drawnGraphics.row(drawnGraphics.rows() - 1).last().pivotLine.get_x2() <= time[1]
+    affixOldPivots(time)
+
+var int firstBarTime = time
+if barstate.islastconfirmedhistory and drawnGraphics.rows() == 0
+    if pivotCount > 0 and not na(pivotPointsArrayStatic)
+        drawNewPivots(firstBarTime, pivotPointsArrayStatic)
+    else if timeframe.isintraday and not isDailyBasedInput
+        runtime.error(
+            "Not enough intraday data available for pivot point calculation. "
+            + "Select a lower timeframe from the options in the 'Pivots timeframe' input, or try selecting the "
+            + "'Use daily-based values' checkbox to request EOD data."
+        )
+    else
+        runtime.error(
+            "Not enough data available for pivot point calculation. "
+            + "Select a lower timeframe from the options in the 'Pivots timeframe' input."
+        )
+
+// ==============================================================================
+// 5B. KALKULASI ATR & PIVOT POINT TERDEKAT (KONFLUENSI AREA)
+// ==============================================================================
+float atrVal = ta.atr(14)
+
+var string nearestPivotName  = "-"
+var float  nearestPivotPrice = na
+var float  nearestPivotAbove = na
+var float  nearestPivotBelow = na
+nearestPivotAbove := na
+nearestPivotBelow := na
+
+if not na(pivotPointsArrayStatic) and array.size(pivotPointsArrayStatic) > 0
+    float minDist      = 1e10
+    float minAboveDist = 1e10
+    float minBelowDist = 1e10
+    string bestName    = "-"
+    float bestPrice    = na
+    for i = 0 to array.size(pivotPointsArrayStatic) - 1
+        float lvl = array.get(pivotPointsArrayStatic, i)
+        if not na(lvl)
+            float d = math.abs(close - lvl)
+            if d < minDist
+                minDist   := d
+                graphicSettings gs = graphicSettingsArray.get(i)
+                bestName  := gs.levelName
+                bestPrice := lvl
+            if lvl > close and (lvl - close) < minAboveDist
+                minAboveDist := lvl - close
+                nearestPivotAbove := lvl
+            if lvl < close and (close - lvl) < minBelowDist
+                minBelowDist := close - lvl
+                nearestPivotBelow := lvl
+    nearestPivotName  := bestName
+    nearestPivotPrice := bestPrice
+
+// Deteksi Konfluensi Pivot: Apakah harga saat ini / wick dekat dengan Pivot Point
+bool isNearPivot = not na(nearestPivotPrice) and (math.abs(close - nearestPivotPrice) <= (atrVal * pivotProximity) or math.abs(low - nearestPivotPrice) <= (atrVal * pivotProximity) or math.abs(high - nearestPivotPrice) <= (atrVal * pivotProximity))
+
+// Deteksi Ruang Gerak Pivot (Headroom: Mencegah Menabrak Pivot Resisten/Support Keras)
+bool passHeadroomBuy  = not usePivotHeadroom or na(nearestPivotAbove) or ((nearestPivotAbove - close) >= (atrVal * minHeadroomAtr))
+bool passHeadroomSell = not usePivotHeadroom or na(nearestPivotBelow) or ((close - nearestPivotBelow) >= (atrVal * minHeadroomAtr))
+
+// ==============================================================================
+// 5C. 3 LEVEL KUNCI RANGE (TERTINGGI RESISTANCE, PIVOT BIRU, TERENDAH SUPPORT)
+// ==============================================================================
+string tfKey = timeframe.isintraday ? "1D" : "1W"
+[dHighVal, dLowVal, dCloseVal] = request.security(syminfo.tickerid, tfKey, [high[1], low[1], close[1]], barmerge.gaps_off, barmerge.lookahead_on)
+float keyPivot  = not na(dHighVal) ? ((dHighVal + dLowVal + dCloseVal) / 3.0) : na
+float keyResist = dHighVal
+float keySupp   = dLowVal
+
+// Plot Pivot Biru agar muncul badge harga di sumbu kanan TradingView (Persis Gambar)
+plot(show3Levels ? keyPivot : na, "Pivot [Axis]", color = colLvlPivot, linewidth = 2, style = plot.style_linebr)
+
+// Garis Horizontal & Label Persis Gambar Referensi
+var line  lineKeyResist = na
+var label lblKeyResist  = na
+var box   boxKeyResist  = na
+
+var line  lineKeyPivot  = na
+var label lblKeyPivot   = na
+
+var line  lineKeySupp   = na
+var label lblKeySupp    = na
+var box   boxKeySupp    = na
+
+if barstate.islast
+    line.delete(lineKeyResist)
+    label.delete(lblKeyResist)
+    box.delete(boxKeyResist)
+
+    line.delete(lineKeyPivot)
+    label.delete(lblKeyPivot)
+
+    line.delete(lineKeySupp)
+    label.delete(lblKeySupp)
+    box.delete(boxKeySupp)
+
+    if show3Levels and not na(keyPivot)
+        int x1 = bar_index - 60
+        int x2 = bar_index + 12
+
+        // 1. Tertinggi Resistance (Abu-abu + Label + Shading)
+        lineKeyResist := line.new(x1, keyResist, x2, keyResist, color = colLvlResist, width = 1, style = line.style_solid, extend = extend.right)
+        lblKeyResist  := label.new(bar_index + 6, keyResist, "Tertinggi Resistance (" + str.tostring(keyResist, format.mintick) + ")", color = #00000000, textcolor = colLvlResist, style = label.style_label_left, size = size.tiny)
+        if showLevelShading
+            boxKeyResist := box.new(x1, keyResist + (atrVal * 0.2), x2 + 30, keyResist - (atrVal * 0.2), border_color = color.new(colLvlResist, 75), bgcolor = color.new(colLvlResist, 88), extend = extend.right)
+
+        // 2. Pivot Tengah (Garis Biru Solid + Label)
+        lineKeyPivot := line.new(x1, keyPivot, x2, keyPivot, color = colLvlPivot, width = 2, style = line.style_solid, extend = extend.right)
+        lblKeyPivot  := label.new(bar_index + 6, keyPivot, "Pivot - " + str.tostring(keyPivot, format.mintick), color = #00000000, textcolor = colLvlPivot, style = label.style_label_left, size = size.tiny)
+
+        // 3. Terendah Support (Abu-abu + Label + Shading)
+        lineKeySupp := line.new(x1, keySupp, x2, keySupp, color = colLvlSupp, width = 1, style = line.style_solid, extend = extend.right)
+        lblKeySupp  := label.new(bar_index + 6, keySupp, "Terendah Support (" + str.tostring(keySupp, format.mintick) + ")", color = #00000000, textcolor = colLvlSupp, style = label.style_label_left, size = size.tiny)
+        if showLevelShading
+            boxKeySupp := box.new(x1, keySupp + (atrVal * 0.2), x2 + 30, keySupp - (atrVal * 0.2), border_color = color.new(colLvlSupp, 75), bgcolor = color.new(colLvlSupp, 88), extend = extend.right)
+
+// ==============================================================================
+// 6. DETEKSI STRUKTUR PASAR SMC (BOS & CHOCH)
+// ==============================================================================
+float pHiStruct = ta.pivothigh(high, structLookback, structLookback)
+float pLoStruct = ta.pivotlow(low, structLookback, structLookback)
+
+var float lastSwingHigh    = na
+var float prevSwingHigh    = na
+var int   lastSwingHighBar = na
+var string lastHiType      = "H"
+var float lastSwingLow     = na
+var float prevSwingLow     = na
+var int   lastSwingLowBar  = na
+var string lastLoType      = "L"
+
+var int    marketTrend     = 0 // 1 = Bullish, -1 = Bearish
+var string lastStructName  = "NETRAL"
+var color  lastStructColor = color.gray
+
+var label[] swingLabels = array.new_label()
+
+if not na(pHiStruct)
+    bool isHH        = not na(lastSwingHigh) and (pHiStruct > lastSwingHigh)
+    lastHiType       := isHH ? "HH" : "LH"
+    string hiTag      = lastHiType
+    color  hiCol      = isHH ? colBullStruct : colBearStruct
+
+    prevSwingHigh    := lastSwingHigh
+    lastSwingHigh    := pHiStruct
+    lastSwingHighBar := bar_index - structLookback
+
+    if showSwingLabels
+        label hiLbl = label.new(bar_index - structLookback, pHiStruct, hiTag, color = color.new(#131722, 15), textcolor = hiCol, style = label.style_label_down, size = size.tiny)
+        array.push(swingLabels, hiLbl)
+        if array.size(swingLabels) > 30
+            label.delete(array.shift(swingLabels))
+
+if not na(pLoStruct)
+    bool isHL        = not na(lastSwingLow) and (pLoStruct > lastSwingLow)
+    lastLoType       := isHL ? "HL" : "LL"
+    string loTag      = lastLoType
+    color  loCol      = isHL ? colBullStruct : colBearStruct
+
+    prevSwingLow     := lastSwingLow
+    lastSwingLow     := pLoStruct
+    lastSwingLowBar  := bar_index - structLookback
+
+    if showSwingLabels
+        label loLbl = label.new(bar_index - structLookback, pLoStruct, loTag, color = color.new(#131722, 15), textcolor = loCol, style = label.style_label_up, size = size.tiny)
+        array.push(swingLabels, loLbl)
+        if array.size(swingLabels) > 30
+            label.delete(array.shift(swingLabels))
+
+if not showSwingLabels and array.size(swingLabels) > 0
+    for i = 0 to array.size(swingLabels) - 1
+        label.delete(array.get(swingLabels, i))
+    array.clear(swingLabels)
+
+bool bullBreak = not na(lastSwingHigh) and ta.crossover(close, lastSwingHigh)
+bool bearBreak = not na(lastSwingLow) and ta.crossunder(close, lastSwingLow)
+
+var line[]  structLines  = array.new_line()
+var label[] structLabels = array.new_label()
+
+if bullBreak
+    bool isBOS = (marketTrend == 1)
+    lastStructName  := isBOS ? "BULLISH BOS" : "BULLISH CHoCH"
+    lastStructColor := colBullStruct
+    marketTrend     := 1
+
+    if showStructure
+        int xStartBull = not na(lastSwingHighBar) ? lastSwingHighBar : (bar_index - structLookback)
+        line bLine = line.new(xStartBull, lastSwingHigh, bar_index, lastSwingHigh, color = colBullStruct, width = 1, style = isBOS ? line.style_solid : line.style_dashed)
+        array.push(structLines, bLine)
+        if array.size(structLines) > 40
+            line.delete(array.shift(structLines))
+
+        int midBullBar = math.round((xStartBull + bar_index) / 2)
+        string structTag = isBOS ? "BOS" : "CHoCH"
+        label bLbl = label.new(midBullBar, lastSwingHigh, structTag, color = color.new(#131722, 10), textcolor = colBullStruct, style = label.style_label_center, size = size.tiny)
+        array.push(structLabels, bLbl)
+        if array.size(structLabels) > 40
+            label.delete(array.shift(structLabels))
+
+if bearBreak
+    bool isBOS = (marketTrend == -1)
+    lastStructName  := isBOS ? "BEARISH BOS" : "BEARISH CHoCH"
+    lastStructColor := colBearStruct
+    marketTrend     := -1
+
+    if showStructure
+        int xStartBear = not na(lastSwingLowBar) ? lastSwingLowBar : (bar_index - structLookback)
+        line sLine = line.new(xStartBear, lastSwingLow, bar_index, lastSwingLow, color = colBearStruct, width = 1, style = isBOS ? line.style_solid : line.style_dashed)
+        array.push(structLines, sLine)
+        if array.size(structLines) > 40
+            line.delete(array.shift(structLines))
+
+        int midBearBar = math.round((xStartBear + bar_index) / 2)
+        string structTag = isBOS ? "BOS" : "CHoCH"
+        label sLbl = label.new(midBearBar, lastSwingLow, structTag, color = color.new(#131722, 10), textcolor = colBearStruct, style = label.style_label_center, size = size.tiny)
+        array.push(structLabels, sLbl)
+        if array.size(structLabels) > 40
+            label.delete(array.shift(structLabels))
+
+// Garis & Label Swing High / Swing Low Aktif Terbaru
+var line  activeHighLine  = na
+var label activeHighLabel = na
+var line  activeLowLine   = na
+var label activeLowLabel  = na
+
+if barstate.islast
+    line.delete(activeHighLine)
+    label.delete(activeHighLabel)
+    line.delete(activeLowLine)
+    label.delete(activeLowLabel)
+
+    if showActiveSwings
+        if not na(lastSwingHigh) and not na(lastSwingHighBar)
+            activeHighLine  := line.new(lastSwingHighBar, lastSwingHigh, bar_index, lastSwingHigh, extend = extend.right, color = color.new(colBullStruct, 30), width = 1, style = line.style_dashed)
+            string hiTagExtra = (showAutoFibo and fiboDisplayMode == "Minimalis Golden Pocket (Sangat Bersih)") ? " / Fibo 0.000" : ""
+            activeHighLabel := label.new(bar_index + 5, lastSwingHigh, "Swing High [" + lastHiType + "]" + hiTagExtra + ": " + str.tostring(lastSwingHigh, format.mintick), color = color.new(#131722, 10), textcolor = colBullStruct, style = label.style_label_left, size = size.tiny)
+
+        if not na(lastSwingLow) and not na(lastSwingLowBar)
+            activeLowLine   := line.new(lastSwingLowBar, lastSwingLow, bar_index, lastSwingLow, extend = extend.right, color = color.new(colBearStruct, 30), width = 1, style = line.style_dashed)
+            string loTagExtra = (showAutoFibo and fiboDisplayMode == "Minimalis Golden Pocket (Sangat Bersih)") ? " / Fibo 1.000" : ""
+            activeLowLabel  := label.new(bar_index + 5, lastSwingLow, "Swing Low [" + lastLoType + "]" + loTagExtra + ": " + str.tostring(lastSwingLow, format.mintick), color = color.new(#131722, 10), textcolor = colBearStruct, style = label.style_label_left, size = size.tiny)
+
+// ==============================================================================
+// 6B. KALKULASI & VISUAL AUTO FIBONACCI RETRACEMENT (SMC SWINGS)
+// ==============================================================================
+float fibo000 = na
+float fibo382 = na
+float fibo500 = na
+float fibo618 = na
+float fibo786 = na
+float fibo100 = na
+float fiboExt1 = na // -0.272 (TP1)
+float fiboExt2 = na // -0.618 (TP2)
+
+float swingRange = (not na(lastSwingHigh) and not na(lastSwingLow)) ? (lastSwingHigh - lastSwingLow) : na
+
+if not na(swingRange) and swingRange > 0
+    if marketTrend >= 0 // Bullish Swing (Low ke High)
+        fibo000  := lastSwingHigh
+        fibo382  := lastSwingHigh - (0.382 * swingRange)
+        fibo500  := lastSwingHigh - (0.500 * swingRange)
+        fibo618  := lastSwingHigh - (0.618 * swingRange)
+        fibo786  := lastSwingHigh - (0.786 * swingRange)
+        fibo100  := lastSwingLow
+        fiboExt1 := lastSwingHigh + (0.272 * swingRange)
+        fiboExt2 := lastSwingHigh + (0.618 * swingRange)
+    else // Bearish Swing (High ke Low)
+        fibo000  := lastSwingLow
+        fibo382  := lastSwingLow + (0.382 * swingRange)
+        fibo500  := lastSwingLow + (0.500 * swingRange)
+        fibo618  := lastSwingLow + (0.618 * swingRange)
+        fibo786  := lastSwingLow + (0.786 * swingRange)
+        fibo100  := lastSwingHigh
+        fiboExt1 := lastSwingLow - (0.272 * swingRange)
+        fiboExt2 := lastSwingLow - (0.618 * swingRange)
+
+// Deteksi Interaksi Golden Pocket (0.500 s/d 0.786)
+float gpTop = not na(fibo500) and not na(fibo786) ? math.max(fibo500, fibo786) : na
+float gpBot = not na(fibo500) and not na(fibo786) ? math.min(fibo500, fibo786) : na
+bool isInsideGp = not na(gpTop) and not na(gpBot) and (high >= gpBot and low <= gpTop)
+bool isCloseInGp = not na(gpTop) and not na(gpBot) and (close >= gpBot and close <= gpTop)
+
+// Evaluasi Status Zona Fibo untuk HUD
+string fiboStatusText = "EVALUATING"
+color  fiboStatusColor = color.gray
+if not na(gpTop) and not na(gpBot)
+    if isInsideGp or isCloseInGp
+        fiboStatusText := "GOLDEN POCKET (0.618)"
+        fiboStatusColor := colFiboGp
+    else if marketTrend >= 0
+        if close < gpBot
+            fiboStatusText := "DEEP DISCOUNT (< 78.6%)"
+            fiboStatusColor := #38bdf8
+        else if close > gpTop
+            fiboStatusText := "PREMIUM ZONE (> 50%)"
+            fiboStatusColor := #f43f5e
+        else
+            fiboStatusText := "DISCOUNT ZONE (50%-78%)"
+            fiboStatusColor := #38bdf8
+    else
+        if close > gpTop
+            fiboStatusText := "DEEP PREMIUM (> 78.6%)"
+            fiboStatusColor := #f43f5e
+        else if close < gpBot
+            fiboStatusText := "DISCOUNT ZONE (< 50%)"
+            fiboStatusColor := #38bdf8
+        else
+            fiboStatusText := "PREMIUM ZONE (50%-78%)"
+            fiboStatusColor := #f43f5e
+
+// Garis & Shading Auto Fibonacci di Bar Terakhir
+var line  fLine000  = na
+var line  fLine500  = na
+var line  fLine618  = na
+var line  fLine786  = na
+var line  fLine100  = na
+var line  fLineExt1 = na
+var line  fLineExt2 = na
+
+var label fLbl000   = na
+var label fLbl500   = na
+var label fLbl618   = na
+var label fLbl786   = na
+var label fLbl100   = na
+var label fLblExt1  = na
+var label fLblExt2  = na
+
+var box   fBoxGp    = na
+
+if barstate.islast
+    line.delete(fLine000)
+    line.delete(fLine500)
+    line.delete(fLine618)
+    line.delete(fLine786)
+    line.delete(fLine100)
+    line.delete(fLineExt1)
+    line.delete(fLineExt2)
+
+    label.delete(fLbl000)
+    label.delete(fLbl500)
+    label.delete(fLbl618)
+    label.delete(fLbl786)
+    label.delete(fLbl100)
+    label.delete(fLblExt1)
+    label.delete(fLblExt2)
+
+    box.delete(fBoxGp)
+
+    if showAutoFibo and not na(fibo000) and not na(fibo100)
+        int xStartFibo = math.min(nz(lastSwingHighBar, bar_index - 30), nz(lastSwingLowBar, bar_index - 30))
+        int xEndFibo   = bar_index
+        bool isFullMode = (fiboDisplayMode == "Lengkap (Semua Garis)")
+
+        // 1. Shading Golden Pocket Box (0.500 s/d 0.786)
+        if showFiboGpBox and not na(gpTop) and not na(gpBot)
+            fBoxGp := box.new(xStartFibo, gpTop, xEndFibo + 20, gpBot, border_color = color.new(colFiboGp, 60), bgcolor = color.new(colFiboGp, 88), extend = extend.right)
+
+        // 2. Garis Emas 0.618 Golden Pocket (Jantung Utama Fibonacci - Selalu Tampil)
+        fLine618 := line.new(xStartFibo, fibo618, xEndFibo, fibo618, color = colFiboGp, width = 2, style = line.style_solid, extend = extend.right)
+        fLbl618  := label.new(bar_index + 5, fibo618, "Fibo 61.8% Golden Pocket (" + str.tostring(fibo618, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colFiboGp, style = label.style_label_left, size = size.tiny)
+
+        // Garis 0.000, 0.500, 0.786, 1.000 HANYA digambar jika user memilih mode Lengkap
+        if isFullMode
+            fLine000 := line.new(xStartFibo, fibo000, xEndFibo, fibo000, color = color.new(colFiboLine, 40), width = 1, style = line.style_solid, extend = extend.right)
+            fLbl000  := label.new(bar_index + 16, fibo000, "Fibo 0.000 (" + str.tostring(fibo000, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colFiboLine, style = label.style_label_left, size = size.tiny)
+
+            fLine500 := line.new(xStartFibo, fibo500, xEndFibo, fibo500, color = color.new(colFiboGp, 30), width = 1, style = line.style_dashed, extend = extend.right)
+            fLbl500  := label.new(bar_index + 5, fibo500, "Fibo 0.500 (" + str.tostring(fibo500, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colFiboGp, style = label.style_label_left, size = size.tiny)
+
+            fLine786 := line.new(xStartFibo, fibo786, xEndFibo, fibo786, color = color.new(colFiboGp, 30), width = 1, style = line.style_dashed, extend = extend.right)
+            fLbl786  := label.new(bar_index + 5, fibo786, "Fibo 0.786 (" + str.tostring(fibo786, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colFiboGp, style = label.style_label_left, size = size.tiny)
+
+            fLine100 := line.new(xStartFibo, fibo100, xEndFibo, fibo100, color = color.new(colFiboLine, 40), width = 1, style = line.style_solid, extend = extend.right)
+            fLbl100  := label.new(bar_index + 16, fibo100, "Fibo 1.000 Origin (" + str.tostring(fibo100, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colFiboLine, style = label.style_label_left, size = size.tiny)
+
+        // 3. Garis Target Ekstensi (-0.272 dan -0.618)
+        if showFiboExt and not na(fiboExt1) and not na(fiboExt2)
+            color colExt = marketTrend >= 0 ? #00E5FF : #FF007F
+            fLineExt1 := line.new(xStartFibo, fiboExt1, xEndFibo, fiboExt1, color = color.new(colExt, 40), width = 1, style = line.style_dotted, extend = extend.right)
+            fLblExt1  := label.new(bar_index + 5, fiboExt1, "TP Ekstensi -0.272 (" + str.tostring(fiboExt1, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colExt, style = label.style_label_left, size = size.tiny)
+
+            fLineExt2 := line.new(xStartFibo, fiboExt2, xEndFibo, fiboExt2, color = color.new(colExt, 40), width = 1, style = line.style_dotted, extend = extend.right)
+            fLblExt2  := label.new(bar_index + 5, fiboExt2, "TP Ekstensi -0.618 (" + str.tostring(fiboExt2, format.mintick) + ")", color = color.new(#131722, 10), textcolor = colExt, style = label.style_label_left, size = size.tiny)
+
+// ==============================================================================
+// 7. DETEKSI 18 POLA CANDLESTICK REJECTION VIKAR PULLBACK
+// ==============================================================================
+// Parameter Candle 0
+float range0     = high - low
+float body0      = math.abs(close - open)
+float lowerWick0 = close >= open ? (open - low) : (close - low)
+float upperWick0 = close >= open ? (high - close) : (high - open)
+bool  isBull0    = close > open
+bool  isBear0    = close < open
+
+// Parameter Candle 1
+float range1     = high[1] - low[1]
+float body1      = math.abs(close[1] - open[1])
+float lowerWick1 = close[1] >= open[1] ? (open[1] - low[1]) : (close[1] - low[1])
+float upperWick1 = close[1] >= open[1] ? (high[1] - close[1]) : (high[1] - open[1])
+bool  isBull1    = close[1] > open[1]
+bool  isBear1    = close[1] < open[1]
+
+// Parameter Candle 2
+float range2     = high[2] - low[2]
+float body2      = math.abs(close[2] - open[2])
+
+// --- 9 POLA BULLISH REJECTION ---
+// 1. Hammer (Ekor bawah >= 2x body, upper wick <= 25% range, wajib candle hijau ATAU ekor bawah >= 70% range)
+bool patHammer          = (range0 > 0) and (lowerWick0 >= 2.0 * body0) and (upperWick0 <= 0.25 * range0) and ((close - low) >= 0.65 * range0) and (isBull0 or lowerWick0 >= 0.70 * range0)
+
+// 2. Bullish Pin Bar (Ekor bawah >= 60% total range, wajib candle hijau ATAU ekor bawah >= 70% range)
+bool patBullPin         = (range0 > 0) and (lowerWick0 >= 0.60 * range0) and (upperWick0 <= 0.20 * range0) and (body0 <= 0.35 * range0) and (isBull0 or lowerWick0 >= 0.70 * range0)
+
+// 3. Bullish Engulfing (Candle hijau menelan candle merah sebelumnya dengan toleransi spread)
+bool patBullEngulf      = isBull0 and isBear1 and (body1 > 0) and (close >= open[1]) and (open <= close[1] + (range1 * 0.15)) and (body0 > body1)
+
+// 4. Morning Star (Formasi 3 candle pembalikan naik)
+bool isSmallBody1       = (range1 > 0) and (body1 <= range1 * 0.40)
+bool isStrongBull0      = isBull0 and (close >= (open[2] + close[2]) / 2.0)
+bool patMorningStar     = (close[2] < open[2]) and isSmallBody1 and isStrongBull0 and (low[1] <= math.max(ema8, ema21))
+
+// 5. Piercing Line (Candle merah diikuti candle hijau close > 50% body merah)
+float midPoint1         = (open[1] + close[1]) / 2.0
+bool patPiercing        = isBear1 and isBull0 and (body1 > 0) and (open <= close[1] + (range1 * 0.15)) and (close > midPoint1) and (close < open[1])
+
+// 6. Three White Soldiers (3 candle hijau berturut-turut)
+bool pat3WhiteSoldiers  = isBull0 and isBull1 and (close[2] > open[2]) and (close > close[1]) and (close[1] > close[2]) and (high > high[1]) and (high[1] > high[2]) and (upperWick0 <= 0.3 * range0) and ((high[1] - close[1]) <= 0.3 * range1)
+
+// 7. Bullish Doji Rejection (Body sangat tipis dengan ekor bawah panjang)
+bool patBullDoji        = (range0 > 0) and (body0 <= 0.12 * range0) and (lowerWick0 >= 0.50 * range0) and (close >= open - (range0 * 0.02))
+
+// 8. Bullish Inside Bar Breakout (Breakout candle di dalam range candle 2)
+bool isInsideBar1       = (high[1] <= high[2]) and (low[1] >= low[2])
+bool patBullInsideBar   = isInsideBar1 and isBull0 and (close > high[1])
+
+// 9. Two Candle Bullish Rejection (Candle 1 ekor bawah panjang membentur EMA, candle 0 konfirmasi)
+bool patBull2Candle     = (range1 > 0) and (lowerWick1 >= 0.45 * range1) and isBull0 and (close > high[1])
+
+// --- 9 POLA BEARISH REJECTION ---
+// 1. Shooting Star (Ekor atas >= 2x body, lower wick <= 25% range, wajib candle merah ATAU ekor atas >= 70% range)
+bool patShootingStar    = (range0 > 0) and (upperWick0 >= 2.0 * body0) and (lowerWick0 <= 0.25 * range0) and ((high - close) >= 0.65 * range0) and (isBear0 or upperWick0 >= 0.70 * range0)
+
+// 2. Bearish Pin Bar (Ekor atas >= 60% total range, wajib candle merah ATAU ekor atas >= 70% range)
+bool patBearPin         = (range0 > 0) and (upperWick0 >= 0.60 * range0) and (lowerWick0 <= 0.20 * range0) and (body0 <= 0.35 * range0) and (isBear0 or upperWick0 >= 0.70 * range0)
+
+// 3. Bearish Engulfing (Candle merah menelan candle hijau sebelumnya dengan toleransi spread)
+bool patBearEngulf      = isBear0 and isBull1 and (body1 > 0) and (close <= open[1]) and (open >= close[1] - (range1 * 0.15)) and (body0 > body1)
+
+// 4. Dark Cloud Cover (Candle hijau diikuti candle merah close < 50% body hijau)
+bool patDarkCloud       = isBull1 and isBear0 and (body1 > 0) and (open >= close[1] - (range1 * 0.15)) and (close < midPoint1) and (close > open[1])
+
+// 5. Evening Star (Formasi 3 candle pembalikan turun)
+bool isStrongBear0      = isBear0 and (close <= (open[2] + close[2]) / 2.0)
+bool patEveningStar     = (close[2] > open[2]) and isSmallBody1 and isStrongBear0 and (high[1] >= math.min(ema8, ema21))
+
+// 6. Three Black Crows (3 candle merah berturut-turut)
+bool pat3BlackCrows     = isBear0 and isBear1 and (close[2] < open[2]) and (close < close[1]) and (close[1] < close[2]) and (low < low[1]) and (low[1] < low[2]) and (lowerWick0 <= 0.3 * range0) and ((close[1] - low[1]) <= 0.3 * range1)
+
+// 7. Bearish Doji Rejection (Body tipis dengan ekor atas panjang penolakan)
+bool patBearDoji        = (range0 > 0) and (body0 <= 0.12 * range0) and (upperWick0 >= 0.50 * range0) and (close <= open + (range0 * 0.02))
+
+// 8. Bearish Inside Bar Breakdown (Breakdown candle di dalam range candle 2)
+bool patBearInsideBar   = isInsideBar1 and isBear0 and (close < low[1])
+
+// 9. Two Candle Bearish Rejection (Candle 1 ekor atas panjang di EMA, candle 0 breakdown konfirmasi)
+bool patBear2Candle     = (range1 > 0) and (upperWick1 >= 0.45 * range1) and isBear0 and (close < low[1])
+
+// Nama Pola Candlestick Terdeteksi
+string bullPatternName = patHammer ? "Hammer" : patBullPin ? "Bull Pin Bar" : patBullEngulf ? "Bullish Engulfing" : patMorningStar ? "Morning Star" : patPiercing ? "Piercing Line" : pat3WhiteSoldiers ? "3 White Soldiers" : patBullDoji ? "Bullish Doji" : patBullInsideBar ? "Inside Bar Break" : patBull2Candle ? "2-Candle Rejection" : ""
+
+string bearPatternName = patShootingStar ? "Shooting Star" : patBearPin ? "Bear Pin Bar" : patBearEngulf ? "Bearish Engulfing" : patDarkCloud ? "Dark Cloud" : patEveningStar ? "Evening Star" : pat3BlackCrows ? "3 Black Crows" : patBearDoji ? "Bearish Doji" : patBearInsideBar ? "Inside Bar Breakdown" : patBear2Candle ? "2-Candle Rejection" : ""
+
+bool hasBullPattern = bullPatternName != ""
+bool hasBearPattern = bearPatternName != ""
+
+// Filter Ribbon Zone EMA 8-21 & Trend EMA 125 Baseline
+float upperRibbon   = math.max(ema8, ema21)
+float lowerRibbon   = math.min(ema8, ema21)
+float ribbonBuffer  = (upperRibbon - lowerRibbon) * 0.35
+
+// Deteksi Pullback: Harga wajib masuk ke zona ribbon EMA 8-21 & ditutup memantul (bukan jebol)
+bool ribbonBounceBull = close >= (lowerRibbon - (ribbonBuffer * 0.2))
+bool ribbonBounceBear = close <= (upperRibbon + (ribbonBuffer * 0.2))
+bool touchBullZone    = ((low <= upperRibbon + ribbonBuffer and high >= lowerRibbon - ribbonBuffer) or (low[1] <= upperRibbon + ribbonBuffer and high[1] >= lowerRibbon - ribbonBuffer)) and ribbonBounceBull
+bool touchBearZone    = ((high >= lowerRibbon - ribbonBuffer and low <= upperRibbon + ribbonBuffer) or (high[1] >= lowerRibbon - ribbonBuffer and low[1] <= upperRibbon + ribbonBuffer)) and ribbonBounceBear
+
+// Filter Baseline Trend EMA 125: Bodi candle wajib di atas/bawah, ekor diperbolehkan menyapu likuiditas
+bool trendBull        = (close > ema125) and (math.min(open, close) >= ema125)
+bool trendBear        = (close < ema125) and (math.max(open, close) <= ema125)
+
+bool alignBull      = ema8 > ema21
+bool alignBear      = ema8 < ema21
+
+// Filter Struktur Pasar SMC (Wajib Bullish untuk BUY, Bearish untuk SELL)
+bool structBull     = requireStructure ? (marketTrend == 1) : true
+bool structBear     = requireStructure ? (marketTrend == -1) : true
+
+// Filter ATR Volatilitas (Abaikan Candle Kerdil)
+bool  passAtrFilter   = not useAtrFilter or (range0 >= (atrVal * minAtrRatio))
+bool  pivotFilterPass = not filterPivotConf or isNearPivot
+
+// Filter Anti-Pucuk/Lembah (Overextension dari EMA 125)
+bool notOverextended = not useOverextendFltr or (math.abs(close - ema125) <= (atrVal * maxDistEma125))
+
+// Filter Kemiringan EMA 125 (Slope Trend Mapan)
+bool slopeBull = not requireEmaSlope or (ema125 >= ema125[3])
+bool slopeBear = not requireEmaSlope or (ema125 <= ema125[3])
+
+// Logika Zero-Repaint: Hanya konfirmasi saat candle resmi ditutup
+bool  isBarConfirmed = barstate.isconfirmed or not barstate.isrealtime
+bool  allowExecution = (signalMode == "Intra-Bar Agresif") ? true : isBarConfirmed
+
+// Anti-Spam Sinyal Cooldown
+var int lastBuyBar  = -100
+var int lastSellBar = -100
+
+// Sinyal Range Reversal di Support & Resistance / Pivot (Persis Gambar)
+bool touchSupportBounce    = not na(keySupp) and (low <= (keySupp + atrVal * 0.5) or math.abs(low - keySupp) <= (atrVal * 0.6)) and hasBullPattern and (bar_index - lastBuyBar >= cooldownBars)
+bool touchResistanceReject = not na(keyResist) and (high >= (keyResist - atrVal * 0.5) or math.abs(high - keyResist) <= (atrVal * 0.6)) and hasBearPattern and (bar_index - lastSellBar >= cooldownBars)
+bool touchPivotBounceBuy   = not na(keyPivot) and (math.abs(low - keyPivot) <= (atrVal * 0.5) or math.abs(close - keyPivot) <= (atrVal * 0.5)) and (close >= keyPivot) and hasBullPattern and (bar_index - lastBuyBar >= cooldownBars)
+bool touchPivotRejectSell  = not na(keyPivot) and (math.abs(high - keyPivot) <= (atrVal * 0.5) or math.abs(close - keyPivot) <= (atrVal * 0.5)) and (close <= keyPivot) and hasBearPattern and (bar_index - lastSellBar >= cooldownBars)
+
+bool rangeBuyCond  = enableSignals and enableRangeSignals and (touchSupportBounce or touchPivotBounceBuy)
+bool rangeSellCond = enableSignals and enableRangeSignals and (touchResistanceReject or touchPivotRejectSell)
+
+// Syarat Sinyal Utama (Pullback Trend + Reversal Range Mode)
+bool passFiboFilter = not filterFiboGp or isInsideGp
+
+bool rawBuyCond  = enableSignals and structBull and trendBull and alignBull and slopeBull and touchBullZone and notOverextended and passHeadroomBuy and passFiboFilter and hasBullPattern and passAtrFilter and pivotFilterPass and (bar_index - lastBuyBar >= cooldownBars)
+bool rawSellCond = enableSignals and structBear and trendBear and alignBear and slopeBear and touchBearZone and notOverextended and passHeadroomSell and passFiboFilter and hasBearPattern and passAtrFilter and pivotFilterPass and (bar_index - lastSellBar >= cooldownBars)
+
+bool buySignal  = (rawBuyCond or rangeBuyCond) and allowExecution
+bool sellSignal = (rawSellCond or rangeSellCond) and allowExecution
+
+if buySignal
+    lastBuyBar := bar_index
+if sellSignal
+    lastSellBar := bar_index
+
+// Deteksi Sapuan Likuiditas SMC (Stop Hunt Wick)
+bool bullSweep = not na(lastSwingLow) and (low < lastSwingLow) and (close > lastSwingLow)
+bool bearSweep = not na(lastSwingHigh) and (high > lastSwingHigh) and (close < lastSwingHigh)
+
+// Label Konfluensi Lengkap (SMC Sweep + Pivot Point + Fibo Golden Pocket)
+string bullTagSweep = bullSweep ? " [SWEEP]" : ""
+string bearTagSweep = bearSweep ? " [SWEEP]" : ""
+string bullTagFibo  = isInsideGp ? " +GP" : ""
+string bearTagFibo  = isInsideGp ? " +GP" : ""
+string bullTagPivot = isNearPivot ? " +" + nearestPivotName : ""
+string bearTagPivot = isNearPivot ? " +" + nearestPivotName : ""
+
+string finalBullName = bullPatternName + bullTagSweep + bullTagPivot + bullTagFibo
+string finalBearName = bearPatternName + bearTagSweep + bearTagPivot + bearTagFibo
+
+// ==============================================================================
+// RENDERING SINYAL VISUAL (BALON TOMBOL MODERN PERSIS GAMBAR vs PANAH STANDAR)
+// ==============================================================================
+string lblBubbleSize = bubbleSizeInput == "Tiny" ? size.tiny : bubbleSizeInput == "Normal" ? size.normal : size.small
+string txtBuyBubble  = hideBuyText ? "" : (showPatternSubtext ? ("Buy\n" + bullPatternName) : "Buy")
+string txtSellBubble = showPatternSubtext ? ("Sell\n" + bearPatternName) : "Sell"
+
+var label[] bubbleLabels = array.new_label()
+
+bool canShowVisuals = showSignalVisuals and (signalVisualMode != "Sembunyikan Tanda (Hidden / Bersih)")
+
+if not canShowVisuals
+    if array.size(bubbleLabels) > 0
+        for i = 0 to array.size(bubbleLabels) - 1
+            label.delete(array.get(bubbleLabels, i))
+        array.clear(bubbleLabels)
+
+if canShowVisuals and (signalVisualMode == "Balon Tombol Modern (Persis Gambar)" or signalVisualMode == "Keduanya")
+    if buySignal and showBuySignals
+        label bLbl = label.new(bar_index, low, txtBuyBubble, color = colBuyBubble, textcolor = color.white, style = label.style_label_up, size = lblBubbleSize)
+        array.push(bubbleLabels, bLbl)
+        if array.size(bubbleLabels) > 60
+            label.delete(array.shift(bubbleLabels))
+
+    if sellSignal and showSellSignals
+        label sLbl = label.new(bar_index, high, txtSellBubble, color = colSellBubble, textcolor = color.white, style = label.style_label_down, size = lblBubbleSize)
+        array.push(bubbleLabels, sLbl)
+        if array.size(bubbleLabels) > 60
+            label.delete(array.shift(bubbleLabels))
+
+bool showStandardArrows = canShowVisuals and (signalVisualMode == "Panah Standar + Label Pola" or signalVisualMode == "Keduanya")
+bool showBuyArrowText   = showStandardArrows and buySignal and showBuySignals and not hideBuyText
+bool showBuyArrowNoText = showStandardArrows and buySignal and showBuySignals and hideBuyText
+bool showSellArrow      = showStandardArrows and sellSignal and showSellSignals
+
+plotshape(showBuyArrowText,   "BUY Pullback Arrow (Text)",    shape.triangleup,   location.belowbar, color = #00E5FF, size = size.small, text = "BUY", textcolor = #00E5FF)
+plotshape(showBuyArrowNoText, "BUY Pullback Arrow (No Text)",  shape.triangleup,   location.belowbar, color = #00E5FF, size = size.small, text = "",    textcolor = #00E5FF)
+plotshape(showSellArrow,      "SELL Pullback Arrow",          shape.triangledown, location.abovebar, color = #FF007F, size = size.small, text = "SELL", textcolor = #FF007F)
+
+if showStandardArrows
+    if showPatternLabel and buySignal and showBuySignals and not hideBuyText
+        label.new(bar_index, low - (atrVal * 0.4), finalBullName, color = color.new(#00E5FF, 20), textcolor = color.white, style = label.style_label_up, size = size.tiny)
+    if showPatternLabel and sellSignal and showSellSignals
+        label.new(bar_index, high + (atrVal * 0.4), finalBearName, color = color.new(#FF007F, 20), textcolor = color.white, style = label.style_label_down, size = size.tiny)
+
+// ==============================================================================
+// 8. HUD DASHBOARD TABLE & VISUAL KOTAK SL / TP
+// ==============================================================================
+var string lastSignalText  = "Belum Ada"
+var color  lastSignalColor = color.gray
+var float  lastSLPrice     = na
+var float  lastTP2Price    = na
+var float  lastBEPrice     = na
+var string lastRiskText    = "-"
+
+// Storage untuk Kotak Visual SL & TP di Chart (TradingView Pro Visual)
+var box[]   tpBoxes    = array.new_box()
+var box[]   slBoxes    = array.new_box()
+var line[]  entryLines = array.new_line()
+var label[] riskLabels = array.new_label()
+
+if buySignal
+    lastSignalText  := "BUY: " + finalBullName + " @" + str.tostring(close, format.mintick)
+    lastSignalColor := #00E5FF
+    // SL Presisi: Structure Swing Low atau 3-Candle Low + Buffer ATR
+    float baseSlBuy  = (slMethod == "Structure Swing (Rekomendasi Pro)" and not na(lastSwingLow) and (close - lastSwingLow) <= (atrVal * 4.0)) ? lastSwingLow : math.min(low, math.min(low[1], low[2]))
+    lastSLPrice     := baseSlBuy - (atrVal * slAtrBuffer)
+    float riskDist  = math.max(syminfo.mintick, close - lastSLPrice)
+    lastTP2Price    := close + (riskDist * rrRatio)
+    lastBEPrice     := close + riskDist
+    lastRiskText    := "SL: " + str.tostring(lastSLPrice, format.mintick) + " | TP(1:" + str.tostring(rrRatio, "#.#") + "): " + str.tostring(lastTP2Price, format.mintick) + " | BEP: " + str.tostring(lastBEPrice, format.mintick)
+
+    if showRiskBoxes
+        int projBars = 10
+        box bTP = box.new(left = bar_index, top = lastTP2Price, right = bar_index + projBars, bottom = close, border_color = color.new(#00E5FF, 50), bgcolor = color.new(#00E5FF, 85))
+        box bSL = box.new(left = bar_index, top = close, right = bar_index + projBars, bottom = lastSLPrice, border_color = color.new(#FF007F, 50), bgcolor = color.new(#FF007F, 85))
+        line lEntry = line.new(bar_index, close, bar_index + projBars, close, color = color.new(color.white, 50), style = line.style_dotted)
+        label lTP = label.new(bar_index + projBars, lastTP2Price, "TP 1:" + str.tostring(rrRatio, "#.#") + "\n" + str.tostring(lastTP2Price, format.mintick), color = color.new(#131722, 10), textcolor = #00E5FF, style = label.style_label_left, size = size.tiny)
+        label lSL = label.new(bar_index + projBars, lastSLPrice, "SL\n" + str.tostring(lastSLPrice, format.mintick), color = color.new(#131722, 10), textcolor = #FF007F, style = label.style_label_left, size = size.tiny)
+        
+        array.push(tpBoxes, bTP)
+        array.push(slBoxes, bSL)
+        array.push(entryLines, lEntry)
+        array.push(riskLabels, lTP)
+        array.push(riskLabels, lSL)
+        
+        if array.size(tpBoxes) > 3
+            box.delete(array.shift(tpBoxes))
+            box.delete(array.shift(slBoxes))
+            line.delete(array.shift(entryLines))
+            label.delete(array.shift(riskLabels))
+            label.delete(array.shift(riskLabels))
+
+else if sellSignal
+    lastSignalText  := "SELL: " + finalBearName + " @" + str.tostring(close, format.mintick)
+    lastSignalColor := #FF007F
+    // SL Presisi: Structure Swing High atau 3-Candle High + Buffer ATR
+    float baseSlSell = (slMethod == "Structure Swing (Rekomendasi Pro)" and not na(lastSwingHigh) and (lastSwingHigh - close) <= (atrVal * 4.0)) ? lastSwingHigh : math.max(high, math.max(high[1], high[2]))
+    lastSLPrice     := baseSlSell + (atrVal * slAtrBuffer)
+    float riskDist  = math.max(syminfo.mintick, lastSLPrice - close)
+    lastTP2Price    := close - (riskDist * rrRatio)
+    lastBEPrice     := close - riskDist
+    lastRiskText    := "SL: " + str.tostring(lastSLPrice, format.mintick) + " | TP(1:" + str.tostring(rrRatio, "#.#") + "): " + str.tostring(lastTP2Price, format.mintick) + " | BEP: " + str.tostring(lastBEPrice, format.mintick)
+
+    if showRiskBoxes
+        int projBars = 10
+        box sTP = box.new(left = bar_index, top = close, right = bar_index + projBars, bottom = lastTP2Price, border_color = color.new(#00E5FF, 50), bgcolor = color.new(#00E5FF, 85))
+        box sSL = box.new(left = bar_index, top = lastSLPrice, right = bar_index + projBars, bottom = close, border_color = color.new(#FF007F, 50), bgcolor = color.new(#FF007F, 85))
+        line lsEntry = line.new(bar_index, close, bar_index + projBars, close, color = color.new(color.white, 50), style = line.style_dotted)
+        label lsTP = label.new(bar_index + projBars, lastTP2Price, "TP 1:" + str.tostring(rrRatio, "#.#") + "\n" + str.tostring(lastTP2Price, format.mintick), color = color.new(#131722, 10), textcolor = #00E5FF, style = label.style_label_left, size = size.tiny)
+        label lsSL = label.new(bar_index + projBars, lastSLPrice, "SL\n" + str.tostring(lastSLPrice, format.mintick), color = color.new(#131722, 10), textcolor = #FF007F, style = label.style_label_left, size = size.tiny)
+        
+        array.push(tpBoxes, sTP)
+        array.push(slBoxes, sSL)
+        array.push(entryLines, lsEntry)
+        array.push(riskLabels, lsTP)
+        array.push(riskLabels, lsSL)
+        
+        if array.size(tpBoxes) > 3
+            box.delete(array.shift(tpBoxes))
+            box.delete(array.shift(slBoxes))
+            line.delete(array.shift(entryLines))
+            label.delete(array.shift(riskLabels))
+            label.delete(array.shift(riskLabels))
+
+if not showRiskBoxes and array.size(tpBoxes) > 0
+    for i = 0 to array.size(tpBoxes) - 1
+        box.delete(array.get(tpBoxes, i))
+    for i = 0 to array.size(slBoxes) - 1
+        box.delete(array.get(slBoxes, i))
+    for i = 0 to array.size(entryLines) - 1
+        line.delete(array.get(entryLines, i))
+    for i = 0 to array.size(riskLabels) - 1
+        label.delete(array.get(riskLabels, i))
+    array.clear(tpBoxes)
+    array.clear(slBoxes)
+    array.clear(entryLines)
+    array.clear(riskLabels)
+
+string tablePosition = hudPosition == "Top Right" ? position.top_right : hudPosition == "Bottom Right" ? position.bottom_right : hudPosition == "Bottom Left" ? position.bottom_left : position.top_left
+string tableTextSize = hudSizeInput == "Tiny" ? size.tiny : hudSizeInput == "Normal" ? size.normal : size.small
+
+var table hudTable = table.new(tablePosition, 2, 9, bgcolor = color.new(#131722, 10), border_color = color.new(#363c4e, 30), border_width = 1)
+
+if showDashboard and barstate.islast
+    // Baris 0: Header
+    table.cell(hudTable, 0, 0, "VIKAR 4-PILLAR PRO", bgcolor = color.new(#1e222d, 0), text_color = #00E5FF, text_size = tableTextSize)
+    table.cell(hudTable, 1, 0, syminfo.ticker + " [" + timeframe.period + "]", bgcolor = color.new(#1e222d, 0), text_color = color.white, text_size = tableTextSize)
+
+    // Baris 1: Status Sinergi Double Alignment (EMA 125 + Pivot Biru)
+    bool   isSuperBull    = (close >= ema125) and (not na(keyPivot) and close >= keyPivot)
+    bool   isSuperBear    = (close < ema125) and (not na(keyPivot) and close <= keyPivot)
+    string doubleAlignTxt = isSuperBull ? "SUPER BULLISH (Grade A+)" : isSuperBear ? "SUPER BEARISH (Grade A+)" : "CONFLICT / WAIT (Netral)"
+    color  doubleAlignCol = isSuperBull ? #00E5FF : isSuperBear ? #FF007F : #FFD600
+    table.cell(hudTable, 0, 1, "Double Alignment", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 1, doubleAlignTxt, text_color = doubleAlignCol, text_size = tableTextSize)
+
+    // Baris 2: Status Tren EMA 125
+    color  trendCol = close >= ema125 ? #00E5FF : #FF007F
+    string trendTxt = close >= ema125 ? "BULLISH (Above)" : "BEARISH (Below)"
+    table.cell(hudTable, 0, 2, "Trend (EMA 125)", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 2, trendTxt, text_color = trendCol, text_size = tableTextSize)
+
+    // Baris 3: Struktur SMC (BOS / CHoCH)
+    table.cell(hudTable, 0, 3, "Struktur SMC", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 3, lastStructName, text_color = lastStructColor, text_size = tableTextSize)
+
+    // Baris 4: Zona Fibo SMC (Golden Pocket / Discount / Premium)
+    table.cell(hudTable, 0, 4, "Zona Fibo SMC", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 4, fiboStatusText, text_color = fiboStatusColor, text_size = tableTextSize)
+
+    // Baris 5: Ribbon Momentum EMA 8/21
+    color  alignCol = ema8 >= ema21 ? #00E5FF : #FF007F
+    string alignTxt = ema8 >= ema21 ? "EMA 8 > 21 (Bull)" : "EMA 8 < 21 (Bear)"
+    table.cell(hudTable, 0, 5, "Momentum Ribbon", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 5, alignTxt, text_color = alignCol, text_size = tableTextSize)
+
+    // Baris 6: Sinyal Terakhir & Harga Masuk
+    table.cell(hudTable, 0, 6, "Sinyal Terakhir", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 6, lastSignalText, text_color = lastSignalColor, text_size = tableTextSize)
+
+    // Baris 7: Rekomendasi Target SL & TP & BEP
+    table.cell(hudTable, 0, 7, "Target SL/TP/BEP", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 7, lastRiskText, text_color = #FFD600, text_size = tableTextSize)
+
+    // Baris 8: Level Pivot Terdekat & Status Konfluensi
+    string confTag = isNearPivot ? " [KONFLUENSI]" : ""
+    string pivTxt = not na(nearestPivotPrice) ? nearestPivotName + " (" + str.tostring(nearestPivotPrice, format.mintick) + ")" + confTag : "-"
+    table.cell(hudTable, 0, 8, "Pivot Terdekat", text_color = color.gray, text_size = tableTextSize)
+    table.cell(hudTable, 1, 8, pivTxt, text_color = isNearPivot ? #00E5FF : color.white, text_size = tableTextSize)
+
+// ==============================================================================
+// 9. ALERTS TRADINGVIEW (DILENGKAPI LEVEL SL & TP & BEP)
+// ==============================================================================
+alertcondition(buySignal,  title = "VIKAR BUY Pullback Signal",  message = "VIKAR BUY Sinyal terkonfirmasi pada {{ticker}} (TF {{interval}})! Pola: Pullback Rejection.")
+alertcondition(sellSignal, title = "VIKAR SELL Pullback Signal", message = "VIKAR SELL Sinyal terkonfirmasi pada {{ticker}} (TF {{interval}})! Pola: Pullback Rejection.")
+
+if barstate.isconfirmed
+    if buySignal
+        alert("VIKAR BUY Signal [" + syminfo.ticker + " " + timeframe.period + "]: " + finalBullName + " @" + str.tostring(close, format.mintick) + " | " + lastRiskText, alert.freq_once_per_bar_close)
+    if sellSignal
+        alert("VIKAR SELL Signal [" + syminfo.ticker + " " + timeframe.period + "]: " + finalBearName + " @" + str.tostring(close, format.mintick) + " | " + lastRiskText, alert.freq_once_per_bar_close)

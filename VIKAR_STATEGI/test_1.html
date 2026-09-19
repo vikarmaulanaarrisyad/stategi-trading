@@ -1,0 +1,340 @@
+import os
+import subprocess
+import base64
+
+def image_to_base64(path):
+    if os.path.exists(path):
+        with open(path, "rb") as img_file:
+            return "data:image/jpeg;base64," + base64.b64encode(img_file.read()).decode("utf-8")
+    return ""
+
+artifact_dir = r"C:\Users\vikar\.gemini\antigravity-ide\brain\35bc941c-56ef-442a-b8ea-185da534d5c0"
+img_buy = image_to_base64(os.path.join(artifact_dir, "setup_buy_continuation_1789611753200.jpg"))
+img_sell = image_to_base64(os.path.join(artifact_dir, "setup_sell_continuation_1789611766274.jpg"))
+img_buy_choch = image_to_base64(os.path.join(artifact_dir, "setup_buy_choch_1789611784040.jpg"))
+img_sell_choch = image_to_base64(os.path.join(artifact_dir, "setup_sell_choch_1789611801504.jpg"))
+img_scalp = image_to_base64(os.path.join(artifact_dir, "setup_scalp_confluence_1789611821381.jpg"))
+
+html_content = f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>TRADING PLAN INSTITUSIONAL - VIKAR STRATEGY PRO</title>
+<style>
+  @page {{
+    size: A4;
+    margin: 15mm 15mm 18mm 15mm;
+    @bottom-right {{
+      content: "Halaman " counter(page);
+      font-size: 8pt;
+      color: #64748b;
+    }}
+    @bottom-left {{
+      content: "VIKAR TRIPLE EMA & PIVOTS PRO | TRADING PLAN";
+      font-size: 8pt;
+      color: #64748b;
+      font-weight: bold;
+    }}
+  }}
+  
+  body {{
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.5;
+    font-size: 9.5pt;
+    margin: 0;
+    padding: 0;
+  }}
+
+  .page {{
+    page-break-after: always;
+    position: relative;
+  }}
+
+  .page:last-child {{
+    page-break-after: auto;
+  }}
+
+  /* Header & Titles */
+  .cover {{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 1000px;
+    text-align: center;
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 60%, #0369a1 100%);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 40px 30px;
+    box-sizing: border-box;
+  }}
+
+  .cover-badge {{
+    background-color: rgba(2, 132, 199, 0.3);
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 25px;
+  }}
+
+  .cover-title {{
+    font-size: 26pt;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0 0 15px 0;
+    background: linear-gradient(to right, #38bdf8, #f43f5e, #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }}
+
+  .cover-subtitle {{
+    font-size: 13pt;
+    color: #cbd5e1;
+    max-width: 650px;
+    margin: 0 0 40px 0;
+    font-weight: 400;
+  }}
+
+  .cover-meta-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    width: 90%;
+    max-width: 600px;
+    margin-top: 30px;
+    text-align: left;
+  }}
+
+  .cover-meta-card {{
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 12px 18px;
+    border-radius: 8px;
+  }}
+
+  .cover-meta-label {{
+    font-size: 7.5pt;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }}
+
+  .cover-meta-val {{
+    font-size: 10pt;
+    color: #ffffff;
+    font-weight: 700;
+    margin-top: 3px;
+  }}
+
+  /* Headings */
+  h1 {{
+    font-size: 16pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: 2px solid #0284c7;
+    padding-bottom: 6px;
+    margin-top: 0;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+  }}
+
+  h2 {{
+    font-size: 12pt;
+    font-weight: 700;
+    color: #0369a1;
+    margin-top: 14px;
+    margin-bottom: 8px;
+  }}
+
+  h3 {{
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #334155;
+    margin-top: 10px;
+    margin-bottom: 6px;
+  }}
+
+  /* Badges */
+  .badge {{
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }}
+  .badge-buy {{ background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }}
+  .badge-sell {{ background-color: #ffe4e6; color: #9f1239; border: 1px solid #fca5a5; }}
+  .badge-bos {{ background-color: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }}
+  .badge-choch {{ background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }}
+  .badge-gold {{ background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }}
+
+  /* Tables */
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 14px 0;
+    font-size: 8.5pt;
+  }}
+
+  th, td {{
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    text-align: left;
+  }}
+
+  th {{
+    background-color: #f1f5f9;
+    color: #0f172a;
+    font-weight: 700;
+  }}
+
+  tr:nth-child(even) {{
+    background-color: #f8fafc;
+  }}
+
+  /* Boxes & Callouts */
+  .box {{
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0284c7;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 10px 0;
+  }}
+
+  .box-warning {{
+    background-color: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 4px solid #e11d48;
+    color: #881337;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 10px 0;
+  }}
+
+  .box-success {{
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 4px solid #16a34a;
+    color: #14532d;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin: 10px 0;
+  }}
+
+  /* Grid layouts */
+  .grid-2 {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }}
+
+  .grid-3 {{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }}
+
+  .card {{
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }}
+
+  .card-title {{
+    font-weight: 700;
+    font-size: 9.5pt;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }}
+
+  /* Image Containers */
+  .chart-img-container {{
+    text-align: center;
+    margin: 10px 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: #0f172a;
+  }}
+
+  .chart-img-container img {{
+    width: 100%;
+    max-height: 275px;
+    object-fit: contain;
+    display: block;
+  }}
+
+  .chart-caption {{
+    background-color: #1e293b;
+    color: #94a3b8;
+    font-size: 7.5pt;
+    padding: 4px 8px;
+    text-align: center;
+    border-top: 1px solid #334155;
+  }}
+
+  ul, ol {{
+    margin: 4px 0 8px 18px;
+    padding: 0;
+  }}
+
+  li {{
+    margin-bottom: 3px;
+  }}
+
+  .highlight {{
+    background-color: #fef08a;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: bold;
+  }}
+</style>
+</head>
+<body>
+<div class="page">
+    <div class="cover">
+      <div class="cover-badge">Institutional Trading SOP</div>
+      <div class="cover-title">VIKAR TRIPLE EMA &<br>PIVOT POINTS PRO</div>
+      <div class="cover-subtitle">
+        Buku Panduan Standar Operasional Prosedur (SOP) & Rencana Trading Harian untuk Gold (XAU/USD) & Forex Berbasis Smart Money Concepts (SMC)
+      </div>
+
+      <div class="cover-meta-grid">
+        <div class="cover-meta-card">
+          <div class="cover-meta-label">Strategi & Versi</div>
+          <div class="cover-meta-val">Triple EMA + MTF Pivots v2.0 Pro</div>
+        </div>
+        <div class="cover-meta-card">
+          <div class="cover-meta-label">Timeframe Eksekusi</div>
+          <div class="cover-meta-val">M5 (Scalping) & M15 (Day Trade)</div>
+        </div>
+        <div class="cover-meta-card">
+          <div class="cover-meta-label">Aset Utama</div>
+          <div class="cover-meta-val">Gold (XAUUSD), EURUSD, GBPUSD</div>
+        </div>
+        <div class="cover-meta-card">
+          <div class="cover-meta-label">Target Rasio Resiko</div>
+          <div class="cover-meta-val">Min. 1:2 Risk to Reward (R:R)</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 60px; font-size: 8pt; color: #64748b; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 15px; width: 80%;">
+        Disusun khusus untuk eksekusi Akun Real | 100% Zero-Repaint Bar Close Rule | Anti-Overextension Protection
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HALAMAN 2: FILOSOFI & MINDSET ==================== -->
+  </body></html>
