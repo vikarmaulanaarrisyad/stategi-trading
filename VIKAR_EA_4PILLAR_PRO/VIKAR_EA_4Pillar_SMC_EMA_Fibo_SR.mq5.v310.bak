@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Vikar Institutional 4-Pillar Trading Strategy"
 #property link      "https://www.tradingview.com"
-#property version   "3.20"
-#property description "Vikar EA 4-Pillar Pro - Apex Grandmaster Edition v3.20 (Autonomous Neuro-Calibration & Self-Tuning)"
+#property version   "3.10"
+#property description "Vikar EA 4-Pillar Pro - Apex Grandmaster Edition v3.10 (Adaptive AI Learning)"
 #property description "SMC Core, Smart Multi-Filter Suite & Self-Healing Matrix"
 #property description "Prop Firm Guardian, Dynamic Structural Trailing & Trap Hunter"
 
@@ -244,13 +244,6 @@ input int           InpNewsMinsAfter           = 25;               // Waktu Pemb
 input bool          InpAutoLockBEBeforeNews    = true;             // Otomatis Kunci SL+ pada Posisi Profit Jelang Berita
 input string        InpNewsReleaseHoursServer  = "15:30,21:00";    // Jam Rilis Berita AS Utama (Waktu Server Broker)
 input double        InpMaxSpreadSpikeMultiplier= 1.8;              // Batas Lonjakan Spread Dinamis (x InpMaxSpreadPips)
-
-input group "=== 8.9 AUTONOMOUS NEURO-CALIBRATION & SELF-TUNING (v3.20) ==="
-input bool          InpUseAutoCalibration          = true;         // Aktifkan Kalibrasi Parameter Mandiri Real-Time (v3.20)
-input double        InpAutoTuningSensitivity       = 1.35;         // Sensitivitas Deteksi Volatilitas (ATR14 / ATR100)
-input int           InpCalibrationConsecLossMax    = 2;            // Pemicu Pengetatan Parameter Saat Loss Beruntun (Default: 2x)
-input double        InpAutoTuningMaxBufferMult     = 1.6;          // Batas Maksimal Ekspansi Buffer SL (x ATR)
-input double        InpAutoTuningScoreStep         = 5.0;          // Langkah Pengetatan Ambang Skor per Kejadian Loss
 
 input group "=== 8.8 SENSOR KELELAHAN MOMENTUM: RSI DIVERGENCE (v2.60) ==="
 input bool          InpUseDivergenceFilter     = true;             // Deteksi Divergensi RSI (Cegah Beli Pucuk / Jual Lembah)
@@ -493,7 +486,6 @@ int            h_ema8       = INVALID_HANDLE;
 int            h_ema21      = INVALID_HANDLE;
 int            h_ema125     = INVALID_HANDLE;
 int            h_atr14      = INVALID_HANDLE;
-int            h_atr100     = INVALID_HANDLE;
 int            h_htf_ema125 = INVALID_HANDLE;
 int            h_htf_ema8   = INVALID_HANDLE;
 int            h_htf_ema21  = INVALID_HANDLE;
@@ -559,23 +551,6 @@ struct LossAutopsyReport
    int                  toxicHour;              // Jam rawan loss (-1 jika normal)
 };
 LossAutopsyReport g_autopsy;
-
-//+------------------------------------------------------------------+
-//| AUTONOMOUS NEURO-CALIBRATION STATE (v3.20)                       |
-//+------------------------------------------------------------------+
-struct AutoCalibrationState
-{
-   bool   isCalibrated;
-   double slBufferAtrMult;        // Dynamic multiplier: default InpSLBufferAtrMult
-   double scoreElevation;         // Dynamic score elevation
-   int    cooldownBars;           // Dynamic cooldown bars
-   double candleTrailBufferPts;   // Dynamic candle trail buffer
-   double volatilityRatio;        // ATR14 / ATR100
-   string regimeDescription;      // "Normal", "High Volatility Spike", "Choppy Compression"
-   int    consecutiveLossStreak;  // Current active consecutive losses
-};
-AutoCalibrationState g_calibration = {false, 1.2, 0.0, 3, 15.0, 1.0, "Normal", 0};
-
 //+------------------------------------------------------------------+
 //| STRUKTUR & MEMORI DINAMIS: PATTERN PERFORMANCE MATRIX (v3.10)   |
 //+------------------------------------------------------------------+
@@ -2558,12 +2533,11 @@ int OnInit()
    h_ema21   = iMA(_Symbol, _Period, InpMediumEMA, 0, MODE_EMA, PRICE_CLOSE);
    h_ema125  = iMA(_Symbol, _Period, InpTrendEMA, 0, MODE_EMA, PRICE_CLOSE);
    h_atr14   = iATR(_Symbol, _Period, 14);
-   h_atr100  = iATR(_Symbol, _Period, 100);
    h_rsi_div = iRSI(_Symbol, _Period, InpRSIPeriod, PRICE_CLOSE);
    h_adx14   = iADX(_Symbol, _Period, InpADXPeriod);
 
    if (h_ema8 == INVALID_HANDLE || h_ema21 == INVALID_HANDLE ||
-       h_ema125 == INVALID_HANDLE || h_atr14 == INVALID_HANDLE || h_atr100 == INVALID_HANDLE ||
+       h_ema125 == INVALID_HANDLE || h_atr14 == INVALID_HANDLE ||
        h_rsi_div == INVALID_HANDLE || h_adx14 == INVALID_HANDLE)
    {
       Print("[ERROR] Gagal menginisialisasi handle indikator MQL5!");
@@ -2654,7 +2628,6 @@ void OnDeinit(const int reason)
    if (h_ema21 != INVALID_HANDLE)      IndicatorRelease(h_ema21);
    if (h_ema125 != INVALID_HANDLE)     IndicatorRelease(h_ema125);
    if (h_atr14 != INVALID_HANDLE)      IndicatorRelease(h_atr14);
-   if (h_atr100 != INVALID_HANDLE)     IndicatorRelease(h_atr100);
    if (h_htf_ema125 != INVALID_HANDLE) IndicatorRelease(h_htf_ema125);
    if (h_htf_ema8 != INVALID_HANDLE)   IndicatorRelease(h_htf_ema8);
    if (h_htf_ema21 != INVALID_HANDLE)  IndicatorRelease(h_htf_ema21);
@@ -3115,78 +3088,8 @@ bool CheckMinATRFloorMQL5(double currentAtrPrice, double &atrPips)
    return (atrPips >= InpMinATRPips);
 }
 
-//+------------------------------------------------------------------+
-//| 8.9 AUTONOMOUS NEURO-CALIBRATION & SELF-TUNING ENGINE (v3.20)     |
-//+------------------------------------------------------------------+
-void AutoCalibrateTradingParameters()
-{
-   if (!InpUseAutoCalibration)
-   {
-      g_calibration.slBufferAtrMult      = InpSLBufferAtrMult;
-      g_calibration.scoreElevation       = 0.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars;
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.regimeDescription    = "Manual Static";
-      return;
-   }
-
-   // 1. Baca ATR Jangka Pendek (14) dan Baseline Jangka Panjang (100)
-   double atr14Buf[2];
-   double atr14Val = 0.0;
-   if (h_atr14 != INVALID_HANDLE && CopyBuffer(h_atr14, 0, 0, 2, atr14Buf) > 0)
-      atr14Val = atr14Buf[1];
-
-   double atr100Buf[2];
-   double atr100Val = 0.0;
-   if (h_atr100 != INVALID_HANDLE && CopyBuffer(h_atr100, 0, 0, 2, atr100Buf) > 0)
-      atr100Val = atr100Buf[1];
-   else
-      atr100Val = atr14Val;
-
-   double volRatio = (atr100Val > 0.0) ? (atr14Val / atr100Val) : 1.0;
-   g_calibration.volatilityRatio = volRatio;
-
-   // 2. Kalibrasi Adaptif berdasarkan Volatilitas
-   if (volRatio >= InpAutoTuningSensitivity)
-   {
-      g_calibration.regimeDescription    = "High Volatility Spike";
-      g_calibration.slBufferAtrMult      = MathMin(InpAutoTuningMaxBufferMult, InpSLBufferAtrMult * 1.35);
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints * 1.4;
-      g_calibration.scoreElevation       = 10.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars + 1;
-   }
-   else if (volRatio <= 0.70 || (InpUseRegimeFilter && g_currentChoppiness > InpChoppyThreshold))
-   {
-      g_calibration.regimeDescription    = "Choppy Compression";
-      g_calibration.slBufferAtrMult      = MathMax(0.8, InpSLBufferAtrMult * 0.9);
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.scoreElevation       = 5.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars + 2;
-   }
-   else
-   {
-      g_calibration.regimeDescription    = "Normal Confluence";
-      g_calibration.slBufferAtrMult      = InpSLBufferAtrMult;
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.scoreElevation       = 0.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars;
-   }
-
-   // 3. Kalibrasi Anti-Tilt pasca Loss Beruntun
-   if (g_consecutiveLossCount >= InpCalibrationConsecLossMax)
-   {
-      g_calibration.scoreElevation += (g_consecutiveLossCount * InpAutoTuningScoreStep);
-      g_calibration.cooldownBars = MathMin(8, InpSignalCooldownBars * g_consecutiveLossCount);
-      g_calibration.slBufferAtrMult = MathMin(InpAutoTuningMaxBufferMult, g_calibration.slBufferAtrMult + 0.25);
-   }
-
-   g_calibration.consecutiveLossStreak = g_consecutiveLossCount;
-   g_calibration.isCalibrated          = true;
-}
-
 void OnTick()
 {
-   AutoCalibrateTradingParameters();
    // 1. Kelola Posisi Aktif (Trailing EMA 21, Structural Runner & Auto-BE Kunci Modal)
    ManageActiveTrades();
 
@@ -3331,8 +3234,7 @@ void OnTick()
       return;
 
    // 9. Periksa Jeda Cooldown Antar Order
-   int effectiveCooldown = InpUseAutoCalibration ? g_calibration.cooldownBars : InpSignalCooldownBars;
-   if (lastOrderBarTime != 0 && (iTime(_Symbol, _Period, 0) - lastOrderBarTime) < (effectiveCooldown * PeriodSeconds(_Period)))
+   if (lastOrderBarTime != 0 && (iTime(_Symbol, _Period, 0) - lastOrderBarTime) < (InpSignalCooldownBars * PeriodSeconds(_Period)))
       return;
 
    // 10. Validasi Filter Whipsaw EMA 125
@@ -3456,7 +3358,7 @@ void OnTick()
             hourPenaltyBUY = 10.0;
          }
 
-         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0) + dirPenaltyBUY + hourPenaltyBUY;
+         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0) + dirPenaltyBUY + hourPenaltyBUY;
 
          if (InpUseSelfHealing && g_autopsy.isActive && rates[0].time < g_autopsy.quarantineUntilBar &&
              g_candleAnalysis.pattern == g_autopsy.failedPattern && g_autopsy.failedPattern != PATTERN_NONE)
@@ -3541,10 +3443,7 @@ void OnTick()
 
             // Hitung Stop Loss
             if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingLow.price > 0)
-            {
-               double effectiveBufferMultBUY = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-               slPrice = lastSwingLow.price - (effectiveBufferMultBUY * currentAtr);
-            }
+               slPrice = lastSwingLow.price - (InpSLBufferAtrMult * currentAtr);
             else if (InpSLType == SL_TYPE_CANDLE_WICK)
                slPrice = rates[1].low - PipToPrice(5.0);
             else
@@ -3739,7 +3638,7 @@ void OnTick()
          hourPenaltySELL = 10.0;
       }
 
-      double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0) + dirPenaltySELL + hourPenaltySELL;
+      double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0) + dirPenaltySELL + hourPenaltySELL;
 
       if (InpUseSelfHealing && g_autopsy.isActive && rates[0].time < g_autopsy.quarantineUntilBar &&
           g_candleAnalysis.pattern == g_autopsy.failedPattern && g_autopsy.failedPattern != PATTERN_NONE)
@@ -3824,10 +3723,7 @@ void OnTick()
 
          // Hitung Stop Loss
          if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingHigh.price > 0)
-         {
-            double effectiveBufferMultSELL = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-            slPrice = lastSwingHigh.price + (effectiveBufferMultSELL * currentAtr);
-         }
+            slPrice = lastSwingHigh.price + (InpSLBufferAtrMult * currentAtr);
          else if (InpSLType == SL_TYPE_CANDLE_WICK)
             slPrice = rates[1].high + PipToPrice(5.0);
          else
@@ -4368,8 +4264,7 @@ void ManageActiveTrades()
          if (posType == POSITION_TYPE_BUY)
          {
             double candleLow = rates[1].low;
-            double effectiveCandleBufBUY = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL  = NormalizeDouble(candleLow - PointToPrice(effectiveCandleBufBUY), _Digits);
+            double candleSL  = NormalizeDouble(candleLow - PointToPrice(InpCandleTrailBufferPoints), _Digits);
             if (candleSL > open && candleSL > sl && (candleSL - sl) >= (5 * _Point) && (current - candleSL) >= minStopDist)
             {
                if (trade.PositionModify(ticket, candleSL, tp))
@@ -4382,8 +4277,7 @@ void ManageActiveTrades()
          else if (posType == POSITION_TYPE_SELL)
          {
             double candleHigh = rates[1].high;
-            double effectiveCandleBufSELL = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL   = NormalizeDouble(candleHigh + PointToPrice(effectiveCandleBufSELL), _Digits);
+            double candleSL   = NormalizeDouble(candleHigh + PointToPrice(InpCandleTrailBufferPoints), _Digits);
             if (candleSL < open && (sl == 0 || candleSL < sl) && (sl - candleSL) >= (5 * _Point) && (candleSL - current) >= minStopDist)
             {
                if (trade.PositionModify(ticket, candleSL, tp))

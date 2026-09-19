@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Vikar Institutional 4-Pillar Trading Strategy"
 #property link      "https://www.tradingview.com"
-#property version   "3.20"
+#property version   "3.10"
 #property strict
 #property description "Robot Trading MT4 Institusional 4 Pilar Terpadu (v3.10 Adaptive AI Learning Edition)"
 #property description "1. SMC Core, Order Block, FVG, VSA Footprint & Multi-Confluence Engine"
@@ -307,14 +307,6 @@ extern bool          InpAutoLockBEBeforeNews    = true;             // Otomatis 
 extern string        InpNewsReleaseHoursServer  = "15:30,21:00";    // Jam Rilis Berita AS Utama (Waktu Server Broker)
 extern double        InpMaxSpreadSpikeMultiplier= 1.8;              // Batas Lonjakan Spread Dinamis (x InpMaxSpreadPips)
 
-//--- 8.9 AUTONOMOUS NEURO-CALIBRATION & SELF-TUNING (v3.20) ---
-extern string       sec89Calib            = "=== 8.9 AUTONOMOUS NEURO-CALIBRATION (v3.20) ===";
-extern bool         InpUseAutoCalibration         = true;         // Aktifkan Kalibrasi Parameter Mandiri Real-Time (v3.20)
-extern double       InpAutoTuningSensitivity      = 1.35;         // Sensitivitas Deteksi Volatilitas (ATR14 / ATR100)
-extern int          InpCalibrationConsecLossMax   = 2;            // Pemicu Pengetatan Parameter Saat Loss Beruntun (Default: 2x)
-extern double       InpAutoTuningMaxBufferMult    = 1.6;          // Batas Maksimal Ekspansi Buffer SL (x ATR)
-extern double       InpAutoTuningScoreStep        = 5.0;          // Langkah Pengetatan Ambang Skor per Kejadian Loss
-
 //--- 8.8 SENSOR KELELAHAN MOMENTUM: RSI DIVERGENCE (v2.60) ---
 extern string       sec88                  = "=== 8.8 SENSOR KELELAHAN DIVERGENCE (v2.60) ===";
 extern bool          InpUseDivergenceFilter     = true;             // Deteksi Divergensi RSI (Cegah Beli Pucuk / Jual Lembah)
@@ -584,23 +576,6 @@ struct LossAutopsyReport
    int                  toxicHour;              // Jam server rawan loss berulang (-1 jika aman)
 };
 LossAutopsyReport g_autopsy;
-
-//+------------------------------------------------------------------+
-//| AUTONOMOUS NEURO-CALIBRATION STATE (v3.20)                       |
-//+------------------------------------------------------------------+
-struct AutoCalibrationState
-{
-   bool   isCalibrated;
-   double slBufferAtrMult;        // Dynamic multiplier: default InpSLBufferAtrMult
-   double scoreElevation;         // Dynamic score elevation
-   int    cooldownBars;           // Dynamic cooldown bars
-   double candleTrailBufferPts;   // Dynamic candle trail buffer
-   double volatilityRatio;        // ATR14 / ATR100
-   string regimeDescription;      // "Normal", "High Volatility Spike", "Choppy Compression"
-   int    consecutiveLossStreak;  // Current active consecutive losses
-};
-AutoCalibrationState g_calibration = {false, 1.0, 0.0, 2, 15.0, 1.0, "Normal", 0};
-
 //+------------------------------------------------------------------+
 //| STRUKTUR & MEMORI DINAMIS: PATTERN PERFORMANCE MATRIX (v2.50)   |
 //+------------------------------------------------------------------+
@@ -2926,8 +2901,7 @@ void ManageActiveTrades()
          if (type == OP_BUY)
          {
             double candleLow = Low[1];
-            double effectiveCandleBufBUY = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL  = NormalizeDouble(candleLow - PointToPrice(effectiveCandleBufBUY), Digits);
+            double candleSL  = NormalizeDouble(candleLow - PointToPrice(InpCandleTrailBufferPoints), Digits);
             if (candleSL > open && candleSL > sl && (candleSL - sl) >= (5 * Point) && (current - candleSL) >= minStopDist)
             {
                if (OrderModify(ticket, open, candleSL, tp, 0, clrGreen))
@@ -2940,8 +2914,7 @@ void ManageActiveTrades()
          else if (type == OP_SELL)
          {
             double candleHigh = High[1];
-            double effectiveCandleBufSELL = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL   = NormalizeDouble(candleHigh + PointToPrice(effectiveCandleBufSELL), Digits);
+            double candleSL   = NormalizeDouble(candleHigh + PointToPrice(InpCandleTrailBufferPoints), Digits);
             if (candleSL < open && (sl == 0 || candleSL < sl) && (sl - candleSL) >= (5 * Point) && (candleSL - current) >= minStopDist)
             {
                if (OrderModify(ticket, open, candleSL, tp, 0, clrGreen))
@@ -3218,7 +3191,7 @@ void CheckTradeSignal()
          g_lastScoreResult = scoreRes;
 
          // 2. Evaluasi Koreksi Diri Pasca-SL: Ambang Skor Dinamis & Karantina Pola Gagal
-         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
+         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
          if (InpUseRegimeFilter && g_currentRegime == REGIME_CHOPPY_SIDEWAYS)
             effectiveMinScoreBUY += 10.0; // Filter ekstra saat pasar sideways sempit
 
@@ -3310,10 +3283,7 @@ void CheckTradeSignal()
             double tpPrice = 0.0;
 
             if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingLow.price > 0)
-            {
-               double effectiveBufferMultBUY = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-               slPrice = lastSwingLow.price - (effectiveBufferMultBUY * currentAtr);
-            }
+               slPrice = lastSwingLow.price - (InpSLBufferAtrMult * currentAtr);
             else if (InpSLType == SL_TYPE_CANDLE_WICK)
                slPrice = Low[1] - PipToPrice(5.0);
             else
@@ -3458,7 +3428,7 @@ void CheckTradeSignal()
          g_lastScoreResult = scoreRes;
 
          // 2. Evaluasi Koreksi Diri Pasca-SL: Ambang Skor Dinamis & Karantina Pola Gagal
-         double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
+         double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
          if (InpUseRegimeFilter && g_currentRegime == REGIME_CHOPPY_SIDEWAYS)
             effectiveMinScoreSELL += 10.0; // Filter ekstra saat pasar sideways sempit
 
@@ -3550,10 +3520,7 @@ void CheckTradeSignal()
             double tpPrice = 0.0;
 
             if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingHigh.price > 0)
-            {
-               double effectiveBufferMultSELL = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-               slPrice = lastSwingHigh.price + (effectiveBufferMultSELL * currentAtr);
-            }
+               slPrice = lastSwingHigh.price + (InpSLBufferAtrMult * currentAtr);
             else if (InpSLType == SL_TYPE_CANDLE_WICK)
                slPrice = High[1] + PipToPrice(5.0);
             else

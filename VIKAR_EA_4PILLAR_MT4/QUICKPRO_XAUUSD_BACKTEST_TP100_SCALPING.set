@@ -1,0 +1,220 @@
+;====================================================================
+; PRESET: QUICKPRO_XAUUSD_BACKTEST_TP100_SCALPING.set
+; STRATEGY: 4-PILLAR SMC + AI LEARNING + DYNAMIC CANDLE/POINTS TRAILING
+; TARGET TP: FIXED 100 POINT (10 PIPS SCALPING GOLD / FOREX)
+; ASSET: XAUUSD / GOLD (Atau Forex Pasangan Utama)
+; TIMEFRAME REKOMENDASI: M5 (5 Minutes)
+;====================================================================
+
+;--- 1. MANAJEMEN LOT & RISIKO MODAL ---
+InpLotType=0
+InpRiskPercent=1.0
+InpFixedLot=0.01
+InpMinLot=0.0
+InpMaxLot=0.10
+InpMaxOpenPositions=1
+InpSignalCooldownBars=2
+InpMagicNumber=777100
+InpTradeComment=VIKAR-TP100-SCALP
+InpDeviation=15
+
+;--- 2. TARGET STOP LOSS, TAKE PROFIT & EXIT STRATEGY ---
+InpSLType=0
+InpSLBufferAtrMult=1.0
+InpMinSLPips=15.0
+InpMaxSLPips=28.0
+InpFixedSLPips=25.0
+InpTPType=3
+InpRiskRewardRatio=1.5
+InpFixedTPPoints=100.0
+
+;--- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
+InpUseBreakeven=1
+InpBreakevenMode=0
+InpBreakevenTriggerPips=5.0
+InpBreakevenRRTrigger=1.0
+InpBreakevenLockPips=2.0
+InpUseTrailingEMA21=1
+InpTrailingBufferPips=3.0
+
+;--- Dynamic Trailing Stop (Kawal Kenaikan Candle & Jarak Points) ---
+InpUseCandleTrailing=1
+InpCandleTrailBufferPoints=15.0
+InpUsePointsTrailing=1
+InpTrailingStartPoints=40.0
+InpTrailingDistPoints=30.0
+InpTrailingStepPoints=10.0
+
+;--- Partial Take Profit / Scaling Out (TP1 50% + SL+ Runner) ---
+InpUsePartialClose=1
+InpPartialClosePercent=50.0
+InpPartialTriggerMode=0
+InpPartialTriggerPips=6.0
+InpPartialRRTrigger=1.2
+InpPartialMoveSLPlus=1
+
+;--- Multi-Stage Structural Trailing Stop (SMC Swing High/Low Runner) ---
+InpUseStructuralTrailing=1
+InpStructuralTrailingAtrBuffer=0.4
+
+;--- Auto Cut Profit Saat Indikasi Pembalikan Arah ---
+InpAutoCutProfit=1
+InpMinProfitToCutPips=3.0
+InpCutOnCHoCH=1
+InpCutOnCandleReversal=1
+InpCutOnEMACross=1
+
+;--- 2.5 STAGNANT TRADE TIME-EXIT ---
+InpUseTimeBasedExit=1
+InpMaxTradeDurationHours=6
+InpMinProfitToTimeExitPips=0.0
+
+;--- 3. PILAR 1: SMART MONEY CONCEPTS (SMC CORE) ---
+InpFractalPeriod=2
+InpRequireBOSorCHoCH=1
+InpRequireDiscount=0
+InpMinFVGPips=2.0
+InpMaxFVGAgeBars=30
+InpUseVSAConfirmation=1
+InpMinUltraHighVolRatio=1.8
+InpMinHighVolRatio=1.3
+
+;--- 4. PILAR 2: SUPPORT & RESISTANCE DINAMIS (PIVOT POINTS) ---
+InpPivotType=0
+InpPivotZoneTolerancePips=6.0
+
+;--- 5. PILAR 3: TRIPLE EXPONENTIAL MOVING AVERAGE (EMA RIBBON) ---
+InpFastEMA=8
+InpMediumEMA=21
+InpTrendEMA=125
+InpRequireEMARibbon=1
+InpRequireTrendAlignment=1
+
+;--- 6. PILAR 4: FIBONACCI RETRACEMENT & GOLDEN ZONE ---
+InpFiboSwingLookback=60
+InpRequireGoldenZone=0
+InpRequireOBConfluence=1
+
+;--- 6.5 TURTLE SOUP REVERSAL & LIQUIDITY SWEEP TRAP HUNTER ---
+InpUseTrapHunter=1
+InpMinSweepPips=3.0
+InpMaxSweepPips=15.0
+InpMinRejectionWickPct=40.0
+
+;--- 7. SISTEM SKORING KONFLUENSI MULTI-FAKTOR (GRADE A+) ---
+InpMinConfluenceScore=65.0
+InpWeightSMC=25.0
+InpWeightSR=20.0
+InpWeightEMA=20.0
+InpWeightFibo=15.0
+InpWeightCandle=10.0
+InpWeightVSA=10.0
+InpWeightTrap=15.0
+
+;--- 7.1 ADAPTIVE SCORING & MOMENTUM BREAKOUT EXPANSION ---
+InpAdaptiveScoreInTrend=1
+InpTrendScoreBonus=5.0
+InpAllowMomentumBreakout=1
+InpBreakoutAtrMult=1.6
+InpBreakoutRequireBOS=1
+InpBreakoutRequireVSA=1
+InpBlockBreakoutInChoppy=1
+
+;--- 7.2 HIGHER TIMEFRAME (HTF) MACRO TREND FILTER ---
+InpUseHTFFilter=1
+InpHTFTimeframe=60
+InpHTFTrendEMA=125
+InpHTFRequireRibbon=0
+InpBlockOppositeTrade=1
+InpAllowPullbackTrades=1
+
+;--- 8. PERLINDUNGAN RISIKO & CIRCUIT BREAKER INSTITUSIONAL ---
+InpUseDailyLossLimit=1
+InpMaxDailyLossPct=3.0
+InpDailyResetHour=0
+InpUseConsecutiveLossGuard=1
+InpMaxConsecutiveLosses=2
+InpCooldownHours=4
+InpUseFridayGuard=1
+InpFridayCloseHour=21
+
+;--- 8.1 PROP FIRM EQUITY GUARDIAN ---
+InpUseEquityGuardian=1
+InpMaxDailyEquityDDPct=4.0
+InpMaxTotalEquityDDPct=8.0
+InpCloseAllOnDDBreach=1
+
+;--- 8.2 NEWS EVENT SHIELD ---
+InpUseNewsShield=0
+InpNewsPauseMinsBefore=30
+InpNewsPauseMinsAfter=30
+InpAutoLockBEBeforeNews=0
+
+;--- 8.3 ABNORMAL SHOCK VOLATILITY GUARD ---
+InpUseShockGuard=1
+InpShockAtrMultiplier=2.2
+InpShockCooldownBars=3
+
+;--- 8.4 MESIN OTOPSI & KOREKSI DIRI PASCA-LOSS (SELF-HEALING) ---
+InpUseSelfHealing=1
+InpPenaltyConfluencePts=10.0
+InpQuarantinePatternBars=15
+InpAdaptiveSLBufferBoost=0.3
+InpAdaptiveBufferTrades=3
+InpAutopsyNotifyPush=0
+InpUseDirectionalLearning=1
+InpDirectionalPenaltyScore=15.0
+InpDirectionalPenaltyBars=12
+InpUseHourlyLearning=1
+
+;--- 8.5 DYNAMIC PATTERN PERFORMANCE MATRIX ---
+InpUsePatternMatrix=1
+InpMinTradesForPatternEval=3
+InpPatternBlacklistWinrate=40.0
+InpPatternBoostWinrate=70.0
+InpPatternBoostScore=10.0
+InpPatternPenaltyScore=15.0
+
+;--- 8.6 MARKET REGIME CLASSIFIER (CHOPPINESS INDEX) ---
+InpUseRegimeFilter=1
+InpChoppinessPeriod=14
+InpChoppyThreshold=61.8
+InpTrendingThreshold=38.2
+
+;--- 8.7 ADVANCED PRE-NEWS & MOMENTUM VOLATILITY SHIELD ---
+InpUsePreNewsFilter=0
+InpPreNewsLookbackBars=6
+InpPreNewsExpansionMult=1.8
+InpUseRSIDivergenceGuard=1
+InpRSIPeriod=14
+InpRSIDivLookback=20
+
+;--- 8.8 ADVANCED ANTI-SIDEWAYS & MULTI-TIMEFRAME VSA ENGINE ---
+InpUseADXFilter=1
+InpADXPeriod=14
+InpMinADXThreshold=20.0
+InpUseVolumeFilter=1
+InpVolumeMAWindow=20
+InpMinVolumeMultiplier=1.1
+InpUseEMASlopeFilter=1
+InpMinEMASlopePips=1.0
+
+;--- 9. ON-CHART SMC VISUALIZER (OFF UNTUK MEMPERCEPAT BACKTEST) ---
+InpDrawSMCOnChart=0
+InpColorBullishOB=9335822
+InpColorBearishOB=3936958
+InpColorFVG=430489
+
+;--- 10. STATISTIK PERFORMA & TAMPILAN DASHBOARD ---
+InpShowDashboard=1
+InpDashboardX=15
+InpDashboardY=20
+InpShowPnLStats=1
+InpResetStatsOnStart=0
+
+;--- 11. NOTIFIKASI PUSH SMARTPHONE (OFF UNTUK BACKTEST) ---
+InpSendPushNotifications=0
+InpNotifyOnEntry=0
+InpNotifyOnSLPlus=0
+InpNotifyOnPartial=0
+InpNotifyOnCircuitBreaker=0

@@ -6,9 +6,9 @@
 //+------------------------------------------------------------------+
 #property copyright "Vikar Institutional 4-Pillar Trading Strategy"
 #property link      "https://www.tradingview.com"
-#property version   "3.20"
+#property version   "3.00"
 #property strict
-#property description "Robot Trading MT4 Institusional 4 Pilar Terpadu (v3.10 Adaptive AI Learning Edition)"
+#property description "Robot Trading MT4 Institusional 4 Pilar Terpadu (v3.0 Apex Grandmaster Edition)"
 #property description "1. SMC Core, Order Block, FVG, VSA Footprint & Multi-Confluence Engine"
 #property description "2. Self-Healing AI Pattern Matrix, Market Regime Classifier & News Shield"
 #property description "3. Prop Firm Equity Guardian, Structural Trailing & Turtle Soup Trap Hunter"
@@ -34,8 +34,7 @@ enum ENUM_TP_TYPE
 {
    TP_TYPE_RISK_REWARD,   // Rasio Risk-to-Reward (1 : 1.5 / 1 : 2 / 1 : 3)
    TP_TYPE_FIBO_EXT,      // Target Ekstensi Fibonacci (-0.272 & -0.618)
-   TP_TYPE_PIVOT_LEVEL,   // Target Level Pivot Statis Terdekat (R1/R2 atau S1/S2)
-   TP_TYPE_FIXED_POINTS   // Target Jarak Statis (Fixed 100 Point / Sesuai Input)
+   TP_TYPE_PIVOT_LEVEL    // Target Level Pivot Statis Terdekat (R1/R2 atau S1/S2)
 };
 
 enum ENUM_BE_MODE
@@ -118,32 +117,23 @@ extern double        InpSLBufferAtrMult    = 1.0;                   // Buffer Pe
 extern double        InpMinSLPips          = 15.0;                  // Batas Minimum Jarak SL (Pips)
 extern double        InpMaxSLPips          = 28.0;                  // Batas Maksimal Jarak SL (Pips - Terbukti Optimal di Gold)
 extern double        InpFixedSLPips        = 25.0;                  // Jarak SL Statis (Jika Mode Fixed Pips)
-extern ENUM_TP_TYPE  InpTPType             = TP_TYPE_RISK_REWARD;   // Metode Penentuan Target Take Profit (Default: Risk-to-Reward Ratio)
-extern double        InpRiskRewardRatio    = 1.5;                   // Rasio Risk to Reward (Default: 1 : 1.5 s/d 1 : 2.0)
-extern double        InpFixedTPPoints      = 100.0;                 // Target Jarak TP Statis (Points, misal 100 Point = 10 Pips)
+extern ENUM_TP_TYPE  InpTPType             = TP_TYPE_RISK_REWARD;   // Metode Penentuan Target Take Profit
+extern double        InpRiskRewardRatio    = 1.5;                   // Rasio Risk to Reward (1 : X)
 
 // --- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
 extern bool          InpUseBreakeven       = true;                  // Aktifkan Auto-Breakeven / SL+ (Kunci Modal & Profit)
 extern ENUM_BE_MODE  InpBreakevenMode      = BE_MODE_PIPS;          // Model Pemicu Auto-BE / SL+ (Pips / Risk-Reward)
-extern double        InpBreakevenTriggerPips= 5.0;                  // Jarak Profit Memicu BE / SL+ (5.0 Pips = 50 Point)
+extern double        InpBreakevenTriggerPips= 8.0;                  // Jarak Profit Memicu BE / SL+ (Pips)
 extern double        InpBreakevenRRTrigger = 1.0;                   // Pemicu BE Saat Profit Mencapai R:R (1.0 = 1:1)
-extern double        InpBreakevenLockPips  = 2.0;                   // Pips Keuntungan Terkunci Saat SL+ (2.0 Pips = 20 Point)
+extern double        InpBreakevenLockPips  = 2.5;                   // Pips Keuntungan Terkunci Saat SL+ (SL Geser ke Profit)
 extern bool          InpUseTrailingEMA21   = true;                  // Trailing Stop Dinamis Mengikuti EMA 21 Magenta
-extern double        InpTrailingBufferPips = 3.0;                   // Jarak Buffer Trailing dari EMA 21 (Pips)
-
-// --- Dynamic Trailing Stop (Kawal Kenaikan Candle & Jarak Points) ---
-extern bool          InpUseCandleTrailing  = true;                  // Trailing Naik Mengikuti Low/High Lilin (Candle-by-Candle)
-extern double        InpCandleTrailBufferPoints = 15.0;             // Buffer Jarak di Bawah Ekor Lilin (Points)
-extern bool          InpUsePointsTrailing  = true;                  // Trailing Stop Dinamis Berdasarkan Jarak Points
-extern double        InpTrailingStartPoints= 40.0;                  // Pemicu Trailing Aktif (Setelah Profit 40 Point)
-extern double        InpTrailingDistPoints = 30.0;                  // Jarak Pengawalan SL di Belakang Harga (Points)
-extern double        InpTrailingStepPoints = 10.0;                  // Langkah Geser SL Tiap Kenaikan Harga (Points)
+extern double        InpTrailingBufferPips = 4.0;                   // Jarak Buffer Trailing dari EMA 21 (Pips)
 
 // --- Partial Take Profit / Scaling Out (TP1 50% + SL+ Runner) ---
 extern bool          InpUsePartialClose    = true;                  // Aktifkan Partial Take Profit (Amankan 50% di TP1)
 extern double        InpPartialClosePercent= 50.0;                  // Persentase Lot Ditutup di TP1 (Default: 50%)
 extern ENUM_BE_MODE  InpPartialTriggerMode = BE_MODE_PIPS;          // Model Pemicu TP1 (Pips / Risk-Reward)
-extern double        InpPartialTriggerPips = 6.0;                   // Jarak Profit Pemicu TP1 (6.0 Pips = 60 Point)
+extern double        InpPartialTriggerPips = 10.0;                  // Jarak Profit Pemicu TP1 (Pips)
 extern double        InpPartialRRTrigger   = 1.2;                   // Pemicu TP1 Saat Mencapai R:R
 extern bool          InpPartialMoveSLPlus  = true;                  // Otomatis Geser Sisa Lot ke SL+ Setelah TP1 Ambil Untung
 
@@ -278,10 +268,6 @@ extern int           InpQuarantinePatternBars   = 15;               // Durasi Ka
 extern double        InpAdaptiveSLBufferBoost   = 0.3;              // Tambahan Buffer ATR Pasca-Loss (x ATR)
 extern int           InpAdaptiveBufferTrades    = 3;                // Jumlah Transaksi dengan Buffer Ekstra Pasca-SL
 extern bool          InpAutopsyNotifyPush       = true;             // Kirim Laporan Otopsi Pasca-Loss ke Smartphone
-extern bool          InpUseDirectionalLearning  = true;             // Proteksi Arah: Penalti Jika Arah Sama Gagal Baru Saja
-extern double        InpDirectionalPenaltyScore = 15.0;             // Penalti Skor Jika Mencoba Arah Gagal Berulang
-extern int           InpDirectionalPenaltyBars  = 12;               // Durasi Penalti Arah Gagal (Bars Lilin)
-extern bool          InpUseHourlyLearning       = true;             // Pelajari & Hindari Jam Tertentu yang Rawan Loss Berulang
 //--- 8.5 DYNAMIC PATTERN PERFORMANCE MATRIX (AI LEARNING v2.50) ---
 extern string       sec85                  = "=== 8.5 DYNAMIC PATTERN PERFORMANCE MATRIX (AI LEARNING v2.50) ===";
 extern bool          InpUsePatternMatrix        = true;             // Aktifkan Memori Rapor & Bobot Kinerja Pola
@@ -306,14 +292,6 @@ extern int           InpNewsMinsAfter           = 25;               // Waktu Pem
 extern bool          InpAutoLockBEBeforeNews    = true;             // Otomatis Kunci SL+ pada Posisi Profit Jelang Berita
 extern string        InpNewsReleaseHoursServer  = "15:30,21:00";    // Jam Rilis Berita AS Utama (Waktu Server Broker)
 extern double        InpMaxSpreadSpikeMultiplier= 1.8;              // Batas Lonjakan Spread Dinamis (x InpMaxSpreadPips)
-
-//--- 8.9 AUTONOMOUS NEURO-CALIBRATION & SELF-TUNING (v3.20) ---
-extern string       sec89Calib            = "=== 8.9 AUTONOMOUS NEURO-CALIBRATION (v3.20) ===";
-extern bool         InpUseAutoCalibration         = true;         // Aktifkan Kalibrasi Parameter Mandiri Real-Time (v3.20)
-extern double       InpAutoTuningSensitivity      = 1.35;         // Sensitivitas Deteksi Volatilitas (ATR14 / ATR100)
-extern int          InpCalibrationConsecLossMax   = 2;            // Pemicu Pengetatan Parameter Saat Loss Beruntun (Default: 2x)
-extern double       InpAutoTuningMaxBufferMult    = 1.6;          // Batas Maksimal Ekspansi Buffer SL (x ATR)
-extern double       InpAutoTuningScoreStep        = 5.0;          // Langkah Pengetatan Ambang Skor per Kejadian Loss
 
 //--- 8.8 SENSOR KELELAHAN MOMENTUM: RSI DIVERGENCE (v2.60) ---
 extern string       sec88                  = "=== 8.8 SENSOR KELELAHAN DIVERGENCE (v2.60) ===";
@@ -579,28 +557,8 @@ struct LossAutopsyReport
    double               scorePenalty;
    datetime             quarantineUntilBar;
    int                  tradesWithExtraBuffer;
-   int                  failedDirection;        // Arah posisi gagal: +1 BUY, -1 SELL, 0 None
-   datetime             directionPenaltyUntil;  // Waktu berakhirnya penalti arah gagal
-   int                  toxicHour;              // Jam server rawan loss berulang (-1 jika aman)
 };
 LossAutopsyReport g_autopsy;
-
-//+------------------------------------------------------------------+
-//| AUTONOMOUS NEURO-CALIBRATION STATE (v3.20)                       |
-//+------------------------------------------------------------------+
-struct AutoCalibrationState
-{
-   bool   isCalibrated;
-   double slBufferAtrMult;        // Dynamic multiplier: default InpSLBufferAtrMult
-   double scoreElevation;         // Dynamic score elevation
-   int    cooldownBars;           // Dynamic cooldown bars
-   double candleTrailBufferPts;   // Dynamic candle trail buffer
-   double volatilityRatio;        // ATR14 / ATR100
-   string regimeDescription;      // "Normal", "High Volatility Spike", "Choppy Compression"
-   int    consecutiveLossStreak;  // Current active consecutive losses
-};
-AutoCalibrationState g_calibration = {false, 1.0, 0.0, 2, 15.0, 1.0, "Normal", 0};
-
 //+------------------------------------------------------------------+
 //| STRUKTUR & MEMORI DINAMIS: PATTERN PERFORMANCE MATRIX (v2.50)   |
 //+------------------------------------------------------------------+
@@ -616,7 +574,7 @@ struct PatternRecord
    double scoreModifier;
 };
 
-#define TOTAL_TRACKED_PATTERNS 13
+#define TOTAL_TRACKED_PATTERNS 12
 PatternRecord g_patternMatrix[TOTAL_TRACKED_PATTERNS];
 
 ENUM_MARKET_REGIME g_currentRegime     = REGIME_NORMAL;
@@ -679,11 +637,6 @@ double PriceToPips(double priceDiff)
       else mult = 1.0;
    }
    return MathAbs(priceDiff) / (point * mult);
-}
-
-double PointToPrice(double points)
-{
-   return PipToPrice(points / 10.0);
 }
 
 //+------------------------------------------------------------------+
@@ -855,59 +808,7 @@ bool IsNewBar()
 }
 
 //+------------------------------------------------------------------+
-//| HELPER & FUNGSI PERSISTENSI AUTOPSY MT4 (v3.10 AI LEARNING)     |
-//+------------------------------------------------------------------+
-void SaveTradeEntrySnapshotMT4(int ticket, int direction, int patternId, double currentScore, double currentAtr)
-{
-   GlobalVariableSet("VIKAR_PAT_"  + IntegerToString(ticket), (double)patternId);
-   GlobalVariableSet("VIKAR_DIR_"  + IntegerToString(ticket), (double)direction);
-   GlobalVariableSet("VIKAR_HOUR_" + IntegerToString(ticket), (double)Hour());
-   GlobalVariableSet("VIKAR_ATR_"  + IntegerToString(ticket), currentAtr);
-   GlobalVariableSet("VIKAR_SCO_"  + IntegerToString(ticket), currentScore);
-}
-
-void SaveAutopsyStateMT4()
-{
-   string pfx = "VIKAR_MT4_AUTOPSY_" + IntegerToString(InpMagicNumber) + "_";
-   GlobalVariableSet(pfx + "ACTIVE", g_autopsy.isActive ? 1.0 : 0.0);
-   GlobalVariableSet(pfx + "TICKET", (double)g_autopsy.failedTicket);
-   GlobalVariableSet(pfx + "PAT", (double)g_autopsy.failedPattern);
-   GlobalVariableSet(pfx + "PENALTY", g_autopsy.scorePenalty);
-   GlobalVariableSet(pfx + "QUARANTINE", (double)g_autopsy.quarantineUntilBar);
-   GlobalVariableSet(pfx + "BUFFER", (double)g_autopsy.tradesWithExtraBuffer);
-   GlobalVariableSet(pfx + "DIR", (double)g_autopsy.failedDirection);
-   GlobalVariableSet(pfx + "DIRUNTIL", (double)g_autopsy.directionPenaltyUntil);
-   GlobalVariableSet(pfx + "TOXICHOUR", (double)g_autopsy.toxicHour);
-}
-
-void LoadAutopsyStateMT4()
-{
-   string pfx = "VIKAR_MT4_AUTOPSY_" + IntegerToString(InpMagicNumber) + "_";
-   if (GlobalVariableCheck(pfx + "ACTIVE") && GlobalVariableGet(pfx + "ACTIVE") > 0.5)
-   {
-      g_autopsy.isActive              = true;
-      g_autopsy.failedTicket          = (int)GlobalVariableGet(pfx + "TICKET");
-      g_autopsy.failedPattern         = (ENUM_CANDLE_PATTERN)(int)GlobalVariableGet(pfx + "PAT");
-      g_autopsy.scorePenalty          = GlobalVariableGet(pfx + "PENALTY");
-      g_autopsy.quarantineUntilBar    = (datetime)GlobalVariableGet(pfx + "QUARANTINE");
-      g_autopsy.tradesWithExtraBuffer = (int)GlobalVariableGet(pfx + "BUFFER");
-      g_autopsy.failedDirection       = (int)GlobalVariableGet(pfx + "DIR");
-      g_autopsy.directionPenaltyUntil = (datetime)GlobalVariableGet(pfx + "DIRUNTIL");
-      g_autopsy.toxicHour             = (int)GlobalVariableGet(pfx + "TOXICHOUR");
-      g_autopsy.lossReason            = "PEMULIHAN STATUS PASCA-RESTART (PERSISTENT)";
-      Print("[SELF-HEALING RESTORED MT4] Status otopsi berhasil dipulihkan dari memori persisten.");
-   }
-   else
-   {
-      g_autopsy.isActive              = false;
-      g_autopsy.failedDirection       = 0;
-      g_autopsy.directionPenaltyUntil = 0;
-      g_autopsy.toxicHour             = -1;
-   }
-}
-
-//+------------------------------------------------------------------+
-//| MESIN OTOPSI & KOREKSI DIRI PASCA-LOSS (SELF-HEALING ENGINE v3.10)|
+//| MESIN OTOPSI & KOREKSI DIRI PASCA-LOSS (SELF-HEALING ENGINE v2.40)|
 //+------------------------------------------------------------------+
 void PerformLossAutopsy(int ticket, datetime closeTime, double lossAmount)
 {
@@ -917,21 +818,18 @@ void PerformLossAutopsy(int ticket, datetime closeTime, double lossAmount)
    g_autopsy.scorePenalty = InpPenaltyConfluencePts;
    g_autopsy.tradesWithExtraBuffer = InpAdaptiveBufferTrades;
 
-   // 1. Ambil data pola candlestick dari memori Global Variable (TIDAK DIHAPUS DISINI AGAR BISA DIBACA MATRIX)
+   // 1. Ambil data pola candlestick dari memori Global Variable
    string patGvKey = "VIKAR_PAT_" + IntegerToString(ticket);
    ENUM_CANDLE_PATTERN pat = PATTERN_NONE;
-   int rawPatId = 0;
    if (GlobalVariableCheck(patGvKey))
    {
-      rawPatId = (int)GlobalVariableGet(patGvKey);
-      pat = (ENUM_CANDLE_PATTERN)rawPatId;
+      pat = (ENUM_CANDLE_PATTERN)(int)GlobalVariableGet(patGvKey);
+      GlobalVariableDel(patGvKey);
    }
    g_autopsy.failedPattern = pat;
 
    string patName = "Pola Setup Standard";
-   if (rawPatId == 12) patName = "Liquidity Sweep Trap Hunter";
-   else if (rawPatId == 11) patName = "Momentum BOS Breakout";
-   else if (pat == PATTERN_HAMMER_PINBAR) patName = "Pin Bar / Hammer";
+   if (pat == PATTERN_HAMMER_PINBAR) patName = "Pin Bar / Hammer";
    else if (pat == PATTERN_ENGULFING) patName = "Engulfing";
    else if (pat == PATTERN_TWEEZER) patName = "Tweezer Rejection";
    else if (pat == PATTERN_MORNING_EVENING) patName = "Morning/Evening Star";
@@ -943,102 +841,44 @@ void PerformLossAutopsy(int ticket, datetime closeTime, double lossAmount)
    else if (pat == PATTERN_INVERTED_HAMMER_STAR) patName = "Inverted Hammer/Star";
    g_autopsy.failedPatternName = patName;
 
-   datetime currentBarTime = Time[0];
-   if (pat != PATTERN_NONE || rawPatId >= 11)
-      g_autopsy.quarantineUntilBar = currentBarTime + (InpQuarantinePatternBars * Period() * 60);
+   if (pat != PATTERN_NONE)
+      g_autopsy.quarantineUntilBar = Time[0] + (InpQuarantinePatternBars * Period() * 60);
    else
       g_autopsy.quarantineUntilBar = 0;
 
-   // Ambil Direction (BUY = +1, SELL = -1)
-   int tradeDir = 0;
-   string dirGvKey = "VIKAR_DIR_" + IntegerToString(ticket);
-   if (GlobalVariableCheck(dirGvKey)) tradeDir = (int)GlobalVariableGet(dirGvKey);
-
-   if (InpUseDirectionalLearning && tradeDir != 0)
-   {
-      g_autopsy.failedDirection       = tradeDir;
-      g_autopsy.directionPenaltyUntil = currentBarTime + (InpDirectionalPenaltyBars * Period() * 60);
-   }
-   else
-   {
-      g_autopsy.failedDirection       = 0;
-      g_autopsy.directionPenaltyUntil = 0;
-   }
-
-   // Ambil Jam Transaksi (0..23) dan Lacak Jam Rawan Loss Berulang
-   int tradeHour = -1;
-   string hrGvKey = "VIKAR_HOUR_" + IntegerToString(ticket);
-   if (GlobalVariableCheck(hrGvKey)) tradeHour = (int)GlobalVariableGet(hrGvKey);
-
-   if (InpUseHourlyLearning && tradeHour >= 0 && tradeHour <= 23)
-   {
-      string hLossKey = "VIKAR_MT4_HLOSS_" + IntegerToString(InpMagicNumber) + "_" + IntegerToString(tradeHour);
-      int currentHLoss = GlobalVariableCheck(hLossKey) ? (int)GlobalVariableGet(hLossKey) : 0;
-      currentHLoss++;
-      GlobalVariableSet(hLossKey, (double)currentHLoss);
-
-      if (currentHLoss >= 2)
-      {
-         g_autopsy.toxicHour = tradeHour;
-         Print("[HOURLY LEARNING MT4] Jam ", tradeHour, ":00 server terdeteksi rawan loss berulang (", currentHLoss, "x loss). Proteksi jam aktif!");
-      }
-      else
-         g_autopsy.toxicHour = -1;
-   }
-   else
-      g_autopsy.toxicHour = -1;
-
-   // 2. Diagnosa Anatomi Mendalam Penyebab Loss (7 Skenario Institusional)
+   // 2. Diagnosa Anatomi Penyebab Loss
    double currentAtr = iATR(Symbol(), 0, 14, 1);
    if (currentAtr <= 0) currentAtr = PipToPrice(20.0);
 
    double lastBarRange = High[1] - Low[1];
    double currentEma125 = iMA(Symbol(), 0, InpTrendEMA, 0, MODE_EMA, PRICE_CLOSE, 1);
 
-   double htfEma125 = iMA(Symbol(), InpHTFTimeframe, InpHTFTrendEMA, 0, MODE_EMA, PRICE_CLOSE, 1);
-   double htfClose  = iClose(Symbol(), InpHTFTimeframe, 1);
-   bool isHtfBull   = (htfClose > htfEma125);
-   bool isHtfBear   = (htfClose < htfEma125);
-
-   string reason = "PENGUJIAN LEVEL GAGAL (SUPPORT/RESISTEN DITEMBUS)";
-   if (lastBarRange >= (2.0 * currentAtr))
-      reason = "VOLATILITAS ABNORMAL (NEWS SHOCK / SPREAD SPIKE)";
-   else if (g_currentChoppiness > 61.8)
-      reason = "JEBAKAN SIDEWAYS NOISE (PASAR CHOPPY KOMPRESI)";
+   string reason = "PENGUJIAN LEVEL GAGAL (LOW CONFLUENCE)";
+   if (lastBarRange >= (2.2 * currentAtr))
+      reason = "VOLATILITAS ABNORMAL (NEWS SHOCK / SPIKE)";
    else if (g_smcAnalysis.hasCHoCH || (Close[1] < currentEma125 && Open[1] > currentEma125) || (Close[1] > currentEma125 && Open[1] < currentEma125))
       reason = "PEMBALIKAN STRUKTUR MAKRO (TREND INVALIDATION)";
    else if (g_smcAnalysis.hasSweep)
-      reason = "LIQUIDITY SWEEP SHAKEOUT (SL TERSAPU EKOR)";
-   else if (tradeDir == 1 && isHtfBear)
-      reason = "DIRECTIONAL ERROR (BUY MELAWAN TREN MAKRO HTF)";
-   else if (tradeDir == -1 && isHtfBull)
-      reason = "DIRECTIONAL ERROR (SELL MELAWAN TREN MAKRO HTF)";
-   else if (g_autopsy.toxicHour >= 0)
-      reason = "JAM RAWAN VOLATILITAS (TOXIC HOUR REVERSAL)";
+      reason = "LIQUIDITY SWEEP SHAKEOUT (SL TERSAPU WICK)";
 
    g_autopsy.lossReason = reason;
-   SaveAutopsyStateMT4();
 
    Print("==================================================================");
    Print("[SELF-HEALING AUTOPSY MT4] Posisi #", ticket, " Loss: ", DoubleToString(lossAmount, 2));
    Print("DIAGNOSA PENYEBAB : ", g_autopsy.lossReason);
    Print("KOREKSI 1 (SKOR)  : Ambang Konfluensi dinaikkan +", DoubleToString(g_autopsy.scorePenalty, 0), " Poin (Hanya Setup Grade A+)");
-   if (pat != PATTERN_NONE || rawPatId >= 11)
+   if (pat != PATTERN_NONE)
       Print("KOREKSI 2 (POLA)  : Pola ", patName, " dikarantina selama ", InpQuarantinePatternBars, " Bar lilin.");
-   if (tradeDir != 0 && InpUseDirectionalLearning)
-      Print("KOREKSI 3 (ARAH)  : Penalti arah ", (tradeDir == 1 ? "BUY" : "SELL"), " +", DoubleToString(InpDirectionalPenaltyScore, 0), " Poin selama ", InpDirectionalPenaltyBars, " Bar lilin.");
-   Print("KOREKSI 4 (BUFFER): Stop Loss diperlebar +", DoubleToString(InpAdaptiveSLBufferBoost, 2), "x ATR untuk ", InpAdaptiveBufferTrades, " trade berikutnya.");
+   Print("KOREKSI 3 (BUFFER): Stop Loss diperlebar +", DoubleToString(InpAdaptiveSLBufferBoost, 2), "x ATR untuk ", InpAdaptiveBufferTrades, " trade berikutnya.");
    Print("==================================================================");
 
    if (InpAutopsyNotifyPush)
    {
-      string notif = "OTOPSI PASCA-SL MT4 #" + IntegerToString(ticket) + " (" + DoubleToString(lossAmount, 2) + ")\n" +
+      string notif = "OTOPSI PASCA-SL #" + IntegerToString(ticket) + " (" + DoubleToString(lossAmount, 2) + ")\n" +
                      "Diagnosa: " + reason + "\n" +
-                     "Koreksi: Ambang Skor +" + DoubleToString(g_autopsy.scorePenalty, 0) + " Poin.";
-      if (pat != PATTERN_NONE || rawPatId >= 11)
+                     "Koreksi Diri: Ambang Skor dinaikkan +" + DoubleToString(g_autopsy.scorePenalty, 0) + " Poin.";
+      if (pat != PATTERN_NONE)
          notif += " Pola " + patName + " dikarantina " + IntegerToString(InpQuarantinePatternBars) + " bar.";
-      if (tradeDir != 0 && InpUseDirectionalLearning)
-         notif += " Penalti arah " + (tradeDir == 1 ? "BUY" : "SELL") + " aktif.";
       SendPushAlert(notif);
    }
 }
@@ -1100,8 +940,7 @@ void InitPatternMatrix()
       "Piercing / Dark Cloud",
       "Dragonfly / Gravestone",
       "Inverted Hammer / Star",
-      "Momentum BOS Breakout",
-      "Liquidity Sweep Trap Hunter"
+      "Momentum BOS Breakout"
    };
 
    int blacklistedCount = 0;
@@ -1435,10 +1274,7 @@ void ResetSelfHealingState(string triggerReason)
    g_autopsy.scorePenalty          = 0.0;
    g_autopsy.tradesWithExtraBuffer = 0;
    g_autopsy.quarantineUntilBar    = 0;
-   g_autopsy.failedDirection       = 0;
-   g_autopsy.directionPenaltyUntil = 0;
    g_autopsy.lossReason            = "STANDBY / OPTIMAL (NORMAL)";
-   SaveAutopsyStateMT4();
    Print("[SELF-HEALING NORMALIZED MT4] Sistem kembali ke mode standar. Pemicu: ", triggerReason);
 }
 
@@ -1566,7 +1402,7 @@ bool CheckCircuitBreakers()
             ResetSelfHealingState("TRANSAKSI SELESAI DENGAN PROFIT (WIN / SL+)");
       }
 
-      // Pembaruan Statistik Pattern Performance Matrix MT4 (v3.10)
+      // Pembaruan Statistik Pattern Performance Matrix (v2.50)
       string procKey = "VIKAR_PMR_PROC_" + IntegerToString(todayTrades[k].ticket);
       if (!GlobalVariableCheck(procKey))
       {
@@ -1577,13 +1413,6 @@ bool CheckCircuitBreakers()
          else if (profit < -0.01)
             UpdatePatternRecord(patId, false);
          GlobalVariableSet(procKey, 1.0);
-
-         // Bersihkan snapshot tiket setelah statistik diperbarui
-         if (GlobalVariableCheck(patGvKey)) GlobalVariableDel(patGvKey);
-         GlobalVariableDel("VIKAR_DIR_" + IntegerToString(todayTrades[k].ticket));
-         GlobalVariableDel("VIKAR_HOUR_" + IntegerToString(todayTrades[k].ticket));
-         GlobalVariableDel("VIKAR_ATR_" + IntegerToString(todayTrades[k].ticket));
-         GlobalVariableDel("VIKAR_SCO_" + IntegerToString(todayTrades[k].ticket));
       }
    }
 
@@ -2650,7 +2479,7 @@ void DrawSMCObjectsOnChart()
 //+------------------------------------------------------------------+
 void ManageActiveTrades()
 {
-   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseStructuralTrailing && !InpUseCandleTrailing && !InpUsePointsTrailing)
+   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseStructuralTrailing)
       return;
 
    // Bersihkan global variable jika tidak ada order aktif
@@ -2878,76 +2707,6 @@ void ManageActiveTrades()
                      Print("[AUTO-BE / SL+] Posisi SELL #", ticket, " SL digeser ke SL+: ", newSL);
                      if (InpNotifyOnSLPlus) SendPushAlert("AUTO-BE SL+ LOCKED!\nPosisi SELL #" + IntegerToString(ticket) + " SL dikunci ke " + DoubleToString(newSL, Digits) + " (Profit Terkunci)");
                   }
-               }
-            }
-         }
-      }
-
-      // 2.5 Dynamic Points Trailing Stop (Kawal Kenaikan Harga per Step Points)
-      if (InpUsePointsTrailing)
-      {
-         if (type == OP_BUY)
-         {
-            double profitPoints = PriceToPips(current - open) * 10.0;
-            if (profitPoints >= InpTrailingStartPoints)
-            {
-               double targetSL = NormalizeDouble(current - PointToPrice(InpTrailingDistPoints), Digits);
-               if (targetSL > open && (targetSL - sl) >= PointToPrice(InpTrailingStepPoints) && (current - targetSL) >= minStopDist)
-               {
-                  if (OrderModify(ticket, open, targetSL, tp, 0, clrGreen))
-                  {
-                     sl = targetSL;
-                     Print("[TRAILING POINTS MT4] Posisi BUY #", ticket, " SL dinaikkan mengawal harga: ", targetSL);
-                  }
-               }
-            }
-         }
-         else if (type == OP_SELL)
-         {
-            double profitPoints = PriceToPips(open - current) * 10.0;
-            if (profitPoints >= InpTrailingStartPoints)
-            {
-               double targetSL = NormalizeDouble(current + PointToPrice(InpTrailingDistPoints), Digits);
-               if (targetSL < open && (sl == 0 || (sl - targetSL) >= PointToPrice(InpTrailingStepPoints)) && (targetSL - current) >= minStopDist)
-               {
-                  if (OrderModify(ticket, open, targetSL, tp, 0, clrGreen))
-                  {
-                     sl = targetSL;
-                     Print("[TRAILING POINTS MT4] Posisi SELL #", ticket, " SL diturunkan mengawal harga: ", targetSL);
-                  }
-               }
-            }
-         }
-      }
-
-      // 2.6 Dynamic Candle-by-Candle Trailing Stop (Kawal Mengikuti Ekor Lilin Terkini)
-      if (InpUseCandleTrailing && Bars > 2)
-      {
-         if (type == OP_BUY)
-         {
-            double candleLow = Low[1];
-            double effectiveCandleBufBUY = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL  = NormalizeDouble(candleLow - PointToPrice(effectiveCandleBufBUY), Digits);
-            if (candleSL > open && candleSL > sl && (candleSL - sl) >= (5 * Point) && (current - candleSL) >= minStopDist)
-            {
-               if (OrderModify(ticket, open, candleSL, tp, 0, clrGreen))
-               {
-                  sl = candleSL;
-                  Print("[TRAILING CANDLE MT4] Posisi BUY #", ticket, " SL naik di bawah ekor lilin Low[1]: ", candleSL);
-               }
-            }
-         }
-         else if (type == OP_SELL)
-         {
-            double candleHigh = High[1];
-            double effectiveCandleBufSELL = InpUseAutoCalibration ? g_calibration.candleTrailBufferPts : InpCandleTrailBufferPoints;
-      double candleSL   = NormalizeDouble(candleHigh + PointToPrice(effectiveCandleBufSELL), Digits);
-            if (candleSL < open && (sl == 0 || candleSL < sl) && (sl - candleSL) >= (5 * Point) && (candleSL - current) >= minStopDist)
-            {
-               if (OrderModify(ticket, open, candleSL, tp, 0, clrGreen))
-               {
-                  sl = candleSL;
-                  Print("[TRAILING CANDLE MT4] Posisi SELL #", ticket, " SL turun di atas ekor lilin High[1]: ", candleSL);
                }
             }
          }
@@ -3218,17 +2977,9 @@ void CheckTradeSignal()
          g_lastScoreResult = scoreRes;
 
          // 2. Evaluasi Koreksi Diri Pasca-SL: Ambang Skor Dinamis & Karantina Pola Gagal
-         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
+         double effectiveMinScoreBUY = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
          if (InpUseRegimeFilter && g_currentRegime == REGIME_CHOPPY_SIDEWAYS)
             effectiveMinScoreBUY += 10.0; // Filter ekstra saat pasar sideways sempit
-
-         // Adaptive Directional Penalty: Cegah balas dendam BUY jika baru saja loss BUY
-         if (InpUseDirectionalLearning && g_autopsy.failedDirection == 1 && TimeCurrent() < g_autopsy.directionPenaltyUntil)
-            effectiveMinScoreBUY += InpDirectionalPenaltyScore;
-
-         // Hourly Toxic Learning: Hindari jam rawan loss berulang
-         if (InpUseHourlyLearning && g_autopsy.toxicHour == Hour())
-            effectiveMinScoreBUY += 10.0;
 
          if (InpUseSelfHealing && g_autopsy.isActive && Time[0] < g_autopsy.quarantineUntilBar &&
              g_candleAnalysis.pattern == g_autopsy.failedPattern && g_autopsy.failedPattern != PATTERN_NONE)
@@ -3276,7 +3027,7 @@ void CheckTradeSignal()
          }
 
          // 4. Evaluasi Pattern Performance Matrix (AI Pattern Learning v2.50)
-         int activePatIdBUY = isBullishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern);
+         int activePatIdBUY = isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern;
          if (InpUsePatternMatrix)
          {
             if (g_patternMatrix[activePatIdBUY].isBlacklisted)
@@ -3310,10 +3061,7 @@ void CheckTradeSignal()
             double tpPrice = 0.0;
 
             if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingLow.price > 0)
-            {
-               double effectiveBufferMultBUY = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-               slPrice = lastSwingLow.price - (effectiveBufferMultBUY * currentAtr);
-            }
+               slPrice = lastSwingLow.price - (InpSLBufferAtrMult * currentAtr);
             else if (InpSLType == SL_TYPE_CANDLE_WICK)
                slPrice = Low[1] - PipToPrice(5.0);
             else
@@ -3323,9 +3071,7 @@ void CheckTradeSignal()
             if (PriceToPips(slDist) < InpMinSLPips) slPrice = Ask - PipToPrice(InpMinSLPips);
             if (PriceToPips(slDist) > InpMaxSLPips) slPrice = Ask - PipToPrice(InpMaxSLPips);
 
-            if (InpTPType == TP_TYPE_FIXED_POINTS)
-               tpPrice = Ask + PointToPrice(InpFixedTPPoints);
-            else if (InpTPType == TP_TYPE_RISK_REWARD)
+            if (InpTPType == TP_TYPE_RISK_REWARD)
                tpPrice = Ask + (InpRiskRewardRatio * (Ask - slPrice));
             else if (InpTPType == TP_TYPE_FIBO_EXT && currentFibo.isValid && currentFibo.ext272 > Ask)
                tpPrice = currentFibo.ext272;
@@ -3356,7 +3102,7 @@ void CheckTradeSignal()
             {
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
-               SaveTradeEntrySnapshotMT4(ticket, 1, activePatIdBUY, scoreRes.totalScore, currentAtr);
+               GlobalVariableSet("VIKAR_PAT_" + IntegerToString(ticket), (double)(isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern));
                lastOrderBarTime = Time[0];
                string patStr = isMomentumBreakout ? "Momentum Breakout Expansion" : g_candleAnalysis.patternName;
                g_lastSignalType = "BUY EXECUTED: " + patStr + " (Skor: " + DoubleToString(scoreRes.totalScore, 0) + ")";
@@ -3458,17 +3204,9 @@ void CheckTradeSignal()
          g_lastScoreResult = scoreRes;
 
          // 2. Evaluasi Koreksi Diri Pasca-SL: Ambang Skor Dinamis & Karantina Pola Gagal
-         double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseAutoCalibration ? g_calibration.scoreElevation : 0.0) + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
+         double effectiveMinScoreSELL = InpMinConfluenceScore + (InpUseSelfHealing && g_autopsy.isActive ? g_autopsy.scorePenalty : 0.0);
          if (InpUseRegimeFilter && g_currentRegime == REGIME_CHOPPY_SIDEWAYS)
             effectiveMinScoreSELL += 10.0; // Filter ekstra saat pasar sideways sempit
-
-         // Adaptive Directional Penalty: Cegah balas dendam SELL jika baru saja loss SELL
-         if (InpUseDirectionalLearning && g_autopsy.failedDirection == -1 && TimeCurrent() < g_autopsy.directionPenaltyUntil)
-            effectiveMinScoreSELL += InpDirectionalPenaltyScore;
-
-         // Hourly Toxic Learning: Hindari jam rawan loss berulang
-         if (InpUseHourlyLearning && g_autopsy.toxicHour == Hour())
-            effectiveMinScoreSELL += 10.0;
 
          if (InpUseSelfHealing && g_autopsy.isActive && Time[0] < g_autopsy.quarantineUntilBar &&
              g_candleAnalysis.pattern == g_autopsy.failedPattern && g_autopsy.failedPattern != PATTERN_NONE)
@@ -3516,7 +3254,7 @@ void CheckTradeSignal()
          }
 
          // 4. Evaluasi Pattern Performance Matrix (AI Pattern Learning v2.50)
-         int activePatIdSELL = isBearishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern);
+         int activePatIdSELL = isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern;
          if (InpUsePatternMatrix)
          {
             if (g_patternMatrix[activePatIdSELL].isBlacklisted)
@@ -3550,10 +3288,7 @@ void CheckTradeSignal()
             double tpPrice = 0.0;
 
             if (InpSLType == SL_TYPE_SWING_FIBO && lastSwingHigh.price > 0)
-            {
-               double effectiveBufferMultSELL = (InpUseAutoCalibration ? g_calibration.slBufferAtrMult : InpSLBufferAtrMult) + ((InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0) ? InpAdaptiveSLBufferBoost : 0.0);
-               slPrice = lastSwingHigh.price + (effectiveBufferMultSELL * currentAtr);
-            }
+               slPrice = lastSwingHigh.price + (InpSLBufferAtrMult * currentAtr);
             else if (InpSLType == SL_TYPE_CANDLE_WICK)
                slPrice = High[1] + PipToPrice(5.0);
             else
@@ -3563,9 +3298,7 @@ void CheckTradeSignal()
             if (PriceToPips(slDist) < InpMinSLPips) slPrice = Bid + PipToPrice(InpMinSLPips);
             if (PriceToPips(slDist) > InpMaxSLPips) slPrice = Bid + PipToPrice(InpMaxSLPips);
 
-            if (InpTPType == TP_TYPE_FIXED_POINTS)
-               tpPrice = Bid - PointToPrice(InpFixedTPPoints);
-            else if (InpTPType == TP_TYPE_RISK_REWARD)
+            if (InpTPType == TP_TYPE_RISK_REWARD)
                tpPrice = Bid - (InpRiskRewardRatio * (slPrice - Bid));
             else if (InpTPType == TP_TYPE_FIBO_EXT && currentFibo.isValid && currentFibo.ext272 < Bid)
                tpPrice = currentFibo.ext272;
@@ -3595,7 +3328,7 @@ void CheckTradeSignal()
             {
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
-               SaveTradeEntrySnapshotMT4(ticket, -1, activePatIdSELL, scoreRes.totalScore, currentAtr);
+               GlobalVariableSet("VIKAR_PAT_" + IntegerToString(ticket), (double)(isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern));
                lastOrderBarTime = Time[0];
                string patStr = isMomentumBreakout ? "Momentum Breakout Expansion" : g_candleAnalysis.patternName;
                g_lastSignalType = "SELL EXECUTED: " + patStr + " (Skor: " + DoubleToString(scoreRes.totalScore, 0) + ")";
@@ -3809,15 +3542,10 @@ void UpdateDashboard()
    color healClr = C'52,211,153';
    if (InpUseSelfHealing && g_autopsy.isActive)
    {
-      string extraGuard = "";
-      if (InpUseDirectionalLearning && g_autopsy.failedDirection != 0 && TimeCurrent() < g_autopsy.directionPenaltyUntil)
-         extraGuard += (g_autopsy.failedDirection == 1 ? " | Blok BUY" : " | Blok SELL");
-      if (InpUseHourlyLearning && g_autopsy.toxicHour >= 0)
-         extraGuard += (" | Toxic H:" + IntegerToString(g_autopsy.toxicHour));
-      healDisplay = "AKTIF (+" + DoubleToString(g_autopsy.scorePenalty, 0) + " Skor" + extraGuard + ")";
+      healDisplay = "AKTIF (+" + DoubleToString(g_autopsy.scorePenalty, 0) + " Skor | " + g_autopsy.lossReason + ")";
       healClr = C'251,191,36';
    }
-   CreateOrUpdateText("VIKAR_HUD_HEAL", panelX + 12, currY + 125, "[AI Brain / Heal]: " + healDisplay, healClr, 7, "Segoe UI Bold");
+   CreateOrUpdateText("VIKAR_HUD_HEAL", panelX + 12, currY + 125, "[Self-Healing]: " + healDisplay, healClr, 7, "Segoe UI Bold");
 
    // Baris Cuaca Pasar (Market Regime Choppiness)
    string regimeStr = "NORMAL (CI: " + DoubleToString(g_currentChoppiness, 1) + ")";
@@ -3864,7 +3592,7 @@ void UpdateDashboard()
    CreateOrUpdateText("VIKAR_HUD_STATUS_VAL", panelX + 15, currY + 19, statusDisplay, clrWhite, 7, "Segoe UI Bold");
    string beStr = InpUseBreakeven ? ("SL+ (+" + DoubleToString(InpBreakevenLockPips, 0) + "p)") : "BE: OFF";
    string cutStr = InpAutoCutProfit ? "Cut: ON" : "Cut: OFF";
-   string trailStr = (InpUsePointsTrailing || InpUseCandleTrailing || InpUseTrailingEMA21) ? "Trail: ON" : "Trail: OFF";
+   string trailStr = InpUseTrailingEMA21 ? "Trail: ON" : "Trail: OFF";
    string partialStr = InpUsePartialClose ? ("Partial: " + DoubleToString(InpPartialClosePercent, 0) + "%") : "Partial: OFF";
    CreateOrUpdateText("VIKAR_HUD_STATUS_CFG", panelX + 15, currY + 34, beStr + " | " + cutStr + " | " + trailStr + " | Lot: " + DoubleToString(currentLotSize, 2), C'148,163,184', 7, "Segoe UI");
 }
@@ -3898,7 +3626,6 @@ int OnInit()
    Print("Aset: ", Symbol(), " | TF: M", Period(), " | Magic: ", InpMagicNumber, " | QuickPro Min Lot: ", qpMinLot);
    Print("Start Time: ", TimeToStr(g_eaStartTime, TIME_DATE|TIME_MINUTES), " | Start Modal: $", DoubleToString(g_eaInitialBalance, 2));
    InitPatternMatrix();
-   LoadAutopsyStateMT4();
 
    lastBarTime = Time[0]; // Safeguard: tunggu lilin penuh pertama pasca pasang EA
 
