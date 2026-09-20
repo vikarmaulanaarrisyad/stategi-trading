@@ -1563,7 +1563,7 @@ bool CheckCircuitBreakers()
       }
    }
 
-   if (!InpUseConsecutiveLossGuard && !InpUseDailyLossLimit && !InpUseEquityGuardian && !InpUseDailyProfitLockdown && !InpUseMaxDailyTrades)
+   if (!InpUseConsecutiveLossGuard && !InpUseDailyLossLimit)
       return true;
 
    datetime todayStart = iTime(Symbol(), PERIOD_D1, 0);
@@ -2129,36 +2129,6 @@ ChartPatternAnalysis AnalyzeChartPatterns(int lookback, double currentAtr)
 //+------------------------------------------------------------------+
 //| ANALISIS KECERDASAN CANDLESTICK (10 POLA REJECTION LENGKAP)      |
 //+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//| BONUS KONFLUENSI AREA HARGA KUNCI (CONFLUENCE BOOST v3.30)       |
-//+------------------------------------------------------------------+
-void ApplyCandleConfluenceBoost(CandleAnalysis &c, double ema8, double ema21, double fibo618, double rng)
-{
-   if (c.pattern != PATTERN_NONE)
-   {
-      double lowRibbon  = MathMin(ema8, ema21);
-      double highRibbon = MathMax(ema8, ema21);
-
-      // Rejection terjadi di Ribbon EMA 8/21 (+10 poin)
-      if (c.isBullish && Low[1] <= highRibbon && High[1] >= lowRibbon)
-         c.score += 10.0;
-      else if (!c.isBullish && High[1] >= lowRibbon && Low[1] <= highRibbon)
-         c.score += 10.0;
-
-      // Rejection menguji Golden Pocket 61.8% (+10 poin)
-      if (fibo618 > 0.0)
-      {
-         if (c.isBullish && MathAbs(Low[1] - fibo618) <= (0.35 * rng))
-            c.score += 10.0;
-         else if (!c.isBullish && MathAbs(High[1] - fibo618) <= (0.35 * rng))
-            c.score += 10.0;
-      }
-
-      if (c.score > 100.0) c.score = 100.0;
-      c.isHighQuality = (c.score >= InpMinCandleScore);
-   }
-}
-
 CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, double pivotP)
 {
    CandleAnalysis c;
@@ -2192,7 +2162,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 85.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (Close[1] < Open[1] && Close[2] < Open[2] && Close[3] < Open[3] &&
                Close[1] < Close[2] && Close[2] < Close[3] &&
@@ -2203,7 +2173,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 85.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2217,7 +2187,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 85.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (Close[1] < Open[1] && Close[2] > Open[2] && Close[1] <= Open[2] && Open[1] >= Close[2])
       {
@@ -2226,7 +2196,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 85.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2240,7 +2210,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 80.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (upperWick >= (0.55 * rng) && body <= (0.35 * rng))
       {
@@ -2249,7 +2219,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 80.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2263,7 +2233,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 82.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (upperWick >= (0.70 * rng) && body <= (0.10 * rng))
       {
@@ -2272,7 +2242,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 82.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2286,7 +2256,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 80.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (Close[3] > Open[3] && MathAbs(Close[2] - Open[2]) <= (0.35 * (High[2] - Low[2])) && Close[1] < Open[1] && Close[1] <= ((Open[3] + Close[3]) / 2.0))
       {
@@ -2295,7 +2265,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 80.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2309,7 +2279,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = (Close[1] >= Open[1]);
          c.score = 78.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2323,7 +2293,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 78.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (Close[2] > Open[2] && Close[1] < Open[1] && Open[1] >= High[2] && Close[1] <= ((Open[2] + Close[2]) / 2.0))
       {
@@ -2332,7 +2302,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 78.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
@@ -2347,7 +2317,7 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = true;
          c.score = 75.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
       else if (MathAbs(High[1] - High[2]) <= pipTol && upperWick >= (0.40 * rng))
       {
@@ -2356,11 +2326,11 @@ CandleAnalysis AnalyzeCandlePattern(double ema8, double ema21, double fibo618, d
          c.isBullish = false;
          c.score = 75.0;
          c.isHighQuality = true;
-         ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+         return c;
       }
    }
 
-   ApplyCandleConfluenceBoost(c, ema8, ema21, fibo618, rng); return c;
+   return c;
 }
 
 //+------------------------------------------------------------------+
@@ -3555,10 +3525,7 @@ void CheckTradeSignal()
                   if (ticket > 0)
                   {
                      Sleep(100);
-                     double opPrice = Ask;
-                     if (OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES))
-                        opPrice = OrderOpenPrice();
-                     if (OrderModify(ticket, opPrice, slPrice, tpPrice, 0, clrBlue))
+                     if (OrderModify(ticket, Ask, slPrice, tpPrice, 0, clrBlue))
                         Print("[ECN BUY SUCCESS] SL dan TP berhasil dipasang pada tiket #", ticket);
                      else
                         Print("[ECN BUY WARN] OrderModify SL/TP gagal: ", GetLastError());
@@ -3816,10 +3783,7 @@ void CheckTradeSignal()
                   if (ticket > 0)
                   {
                      Sleep(100);
-                     double opPrice = Bid;
-                     if (OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES))
-                        opPrice = OrderOpenPrice();
-                     if (OrderModify(ticket, opPrice, slPrice, tpPrice, 0, clrRed))
+                     if (OrderModify(ticket, Bid, slPrice, tpPrice, 0, clrRed))
                         Print("[ECN SELL SUCCESS] SL dan TP berhasil dipasang pada tiket #", ticket);
                      else
                         Print("[ECN SELL WARN] OrderModify SL/TP gagal: ", GetLastError());
@@ -4165,73 +4129,8 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 //| ON TICK                                                          |
 //+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//| REAL-TIME AUTO-CALIBRATION ENGINE (v3.20)                        |
-//+------------------------------------------------------------------+
-void AutoCalibrateTradingParameters()
-{
-   if (!InpUseAutoCalibration)
-   {
-      g_calibration.slBufferAtrMult      = InpSLBufferAtrMult;
-      g_calibration.scoreElevation       = 0.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars;
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.regimeDescription    = "Manual Static";
-      return;
-   }
-
-   // 1. Baca ATR Jangka Pendek (14) dan Baseline Jangka Panjang (100)
-   double atr14Val = iATR(Symbol(), 0, 14, 1);
-   if (atr14Val <= 0.0) atr14Val = PipToPrice(20.0);
-
-   double atr100Val = iATR(Symbol(), 0, 100, 1);
-   if (atr100Val <= 0.0) atr100Val = atr14Val;
-
-   double volRatio = (atr100Val > 0.0) ? (atr14Val / atr100Val) : 1.0;
-   g_calibration.volatilityRatio = volRatio;
-
-   // 2. Kalibrasi Adaptif berdasarkan Volatilitas
-   if (volRatio >= InpAutoTuningSensitivity)
-   {
-      g_calibration.regimeDescription    = "High Volatility Spike";
-      g_calibration.slBufferAtrMult      = MathMin(InpAutoTuningMaxBufferMult, InpSLBufferAtrMult * 1.35);
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints * 1.4;
-      g_calibration.scoreElevation       = 10.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars + 1;
-   }
-   else if (volRatio <= 0.70 || (InpUseRegimeFilter && g_currentChoppiness > InpChoppyThreshold))
-   {
-      g_calibration.regimeDescription    = "Choppy Compression";
-      g_calibration.slBufferAtrMult      = MathMax(0.8, InpSLBufferAtrMult * 0.9);
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.scoreElevation       = 5.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars + 2;
-   }
-   else
-   {
-      g_calibration.regimeDescription    = "Normal Confluence";
-      g_calibration.slBufferAtrMult      = InpSLBufferAtrMult;
-      g_calibration.candleTrailBufferPts = InpCandleTrailBufferPoints;
-      g_calibration.scoreElevation       = 0.0;
-      g_calibration.cooldownBars         = InpSignalCooldownBars;
-   }
-
-   // 3. Kalibrasi Anti-Tilt pasca Loss Beruntun
-   if (g_consecutiveLossCount >= InpCalibrationConsecLossMax)
-   {
-      g_calibration.scoreElevation += (g_consecutiveLossCount * InpAutoTuningScoreStep);
-      g_calibration.cooldownBars = (int)MathMin(8, InpSignalCooldownBars * g_consecutiveLossCount);
-      g_calibration.slBufferAtrMult = MathMin(InpAutoTuningMaxBufferMult, g_calibration.slBufferAtrMult + 0.25);
-   }
-
-   g_calibration.consecutiveLossStreak = g_consecutiveLossCount;
-   g_calibration.isCalibrated          = true;
-}
-
 void OnTick()
 {
-   AutoCalibrateTradingParameters();
-
    // 1. Kelola Posisi Aktif
    ManageActiveTrades();
 
