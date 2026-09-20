@@ -44,6 +44,12 @@ enum ENUM_BE_MODE
    BE_MODE_RISK_REWARD    // Berdasarkan Rasio Risk-Reward (e.g. Profit 1:1 -> Geser SL ke +5 Pips)
 };
 
+enum ENUM_PROFIT_TARGET_MODE
+{
+   PROFIT_TARGET_CURRENCY,  // Target Profit Berdasarkan Nominal Uang ($ / Saldo Akun)
+   PROFIT_TARGET_PERCENT    // Target Profit Berdasarkan Persentase Saldo Modal (%)
+};
+
 enum ENUM_SMC_STRUCTURE
 {
    SMC_STRUCT_NEUTRAL,     // Sideways / Konsolidasi
@@ -361,6 +367,26 @@ extern double        InpMinSweepPips            = 4.0;              // Minimal J
 extern double        InpMaxSweepPips            = 30.0;             // Maksimal Jarak Penembusan Palsu (Pips)
 extern double        InpMinRejectionWickPct     = 40.0;             // Minimal Panjang Ekor Penolakan Lilin (%)
 
+//--- 8.16 PRO TRADER DISCIPLINE SUITE (v3.30) ---
+extern string       sec816                 = "=== 8.16 PRO TRADER DISCIPLINE SUITE (v3.30) ===";
+extern bool          InpUseDailyProfitLockdown  = true;              // Kunci Trading Hari Ini Jika Target Profit Harian Tercapai (Done for the Day)
+extern ENUM_PROFIT_TARGET_MODE InpDailyProfitTargetMode = PROFIT_TARGET_CURRENCY; // Model Target Profit Harian
+extern double        InpDailyProfitTargetMoney  = 50.0;              // Target Profit Harian ($ USD)
+extern double        InpDailyProfitTargetPercent= 2.0;               // Target Profit Harian (% Modal)
+extern bool          InpUseRolloverGuard        = true;              // Bekukan Entry Selama Rollover Spread Melebar Tengah Malam
+extern int           InpRolloverStartHour       = 23;                // Jam Mulai Rollover Server
+extern int           InpRolloverStartMin        = 50;                // Menit Mulai Rollover Server (23:50)
+extern int           InpRolloverEndHour         = 0;                 // Jam Selesai Rollover Server
+extern int           InpRolloverEndMin          = 25;                // Menit Selesai Rollover Server (00:25)
+extern bool          InpUseMaxDailyTrades       = true;              // Batasi Kuota Maksimal Transaksi per Hari (Anti-Overtrading)
+extern int           InpMaxDailyTrades          = 5;                 // Kuota Maksimal Transaksi per Hari
+extern bool          InpUseMilestoneRatchet     = true;              // Kunci Untung Bertingkat (+0.5R di 1.0R, +1.0R di 1.5R, +1.5R di 2.0R)
+extern bool          InpTradeKillzonesOnly      = false;             // Hanya Trading di Sesi Institusional Paling Likuid (London & NY)
+extern int           InpKillzoneLondonStart     = 9;                 // Jam Mulai London Killzone (Server Time)
+extern int           InpKillzoneLondonEnd       = 13;                // Jam Selesai London Killzone (Server Time)
+extern int           InpKillzoneNYStart         = 14;                // Jam Mulai New York Killzone (Server Time)
+extern int           InpKillzoneNYEnd           = 20;                // Jam Selesai New York Killzone (Server Time)
+
 //--- 9. ON-CHART SMC VISUALIZER (AUTO-DRAW DI CHART) ---
 extern string       sec9                   = "=== 9. ON-CHART SMC VISUALIZER (AUTO-DRAW DI CHART) ===";
 extern bool          InpDrawSMCOnChart     = true;                  // Otomatis Gambar Kotak Order Block, FVG & Garis BOS di MT4
@@ -628,6 +654,12 @@ string g_sidewaysStatusStr = "NORMAL (TREN SEHAT)";
 double g_midnightBalance      = 0.0;
 bool   g_equityLockActive     = false;
 double g_currentDailyDDPct    = 0.0;
+
+// Pro Trader Discipline Suite Globals (v3.30)
+bool     g_dailyProfitLocked        = false;
+datetime g_lastProfitLockDay        = 0;
+int      g_todayTradesCount         = 0;
+datetime g_lastTradeCountDay        = 0;
 string g_trapHunterStatusStr  = "STANDBY";
 double g_currentADXVal     = 25.0;
 double g_currentVolRatio   = 1.20;
@@ -1443,6 +1475,38 @@ void ResetSelfHealingState(string triggerReason)
 }
 
 //+------------------------------------------------------------------+
+//| PRO TRADER DISCIPLINE HELPERS (v3.30)                            |
+//+------------------------------------------------------------------+
+bool IsInRolloverWindow()
+{
+   if (!InpUseRolloverGuard) return false;
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   int curMin = dt.hour * 60 + dt.min;
+   int startMin = InpRolloverStartHour * 60 + InpRolloverStartMin;
+   int endMin = InpRolloverEndHour * 60 + InpRolloverEndMin;
+   if (startMin > endMin)
+   {
+      if (curMin >= startMin || curMin < endMin) return true;
+   }
+   else
+   {
+      if (curMin >= startMin && curMin < endMin) return true;
+   }
+   return false;
+}
+
+bool IsInKillzoneWindow()
+{
+   if (!InpTradeKillzonesOnly) return true;
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   if (dt.hour >= InpKillzoneLondonStart && dt.hour < InpKillzoneLondonEnd) return true;
+   if (dt.hour >= InpKillzoneNYStart && dt.hour < InpKillzoneNYEnd) return true;
+   return false;
+}
+
+//+------------------------------------------------------------------+
 //| EVALUASI CIRCUIT BREAKER: CONSECUTIVE LOSS COOLDOWN & DAILY LIMIT|
 //+------------------------------------------------------------------+
 bool CheckCircuitBreakers()
@@ -1635,6 +1699,51 @@ bool CheckCircuitBreakers()
       }
    }
 
+   // 2.1 Daily Profit Target Lockdown ("Done for the Day") (v3.30)
+   if (InpUseDailyProfitLockdown)
+   {
+      double targetProfit = (InpDailyProfitTargetMode == PROFIT_TARGET_CURRENCY) ? 
+                            InpDailyProfitTargetMoney : 
+                            (AccountBalance() * (InpDailyProfitTargetPercent / 100.0));
+      if (todayClosedPnL >= targetProfit)
+      {
+         g_dailyProfitLocked = true;
+         g_lastSignalType = "DONE FOR THE DAY: TARGET PROFIT TERCAPAI (+$" + DoubleToString(todayClosedPnL, 2) + " >= $" + DoubleToString(targetProfit, 2) + ")";
+         static datetime lastLockPush = 0;
+         if (InpSendPushNotifications && (TimeCurrent() - lastLockPush) > 3600)
+         {
+            SendPushAlert("TARGET PROFIT HARIAN TERCAPAI! (DONE FOR THE DAY)\nProfit Hari Ini: +$" + DoubleToString(todayClosedPnL, 2) + "\nRobot mengunci trading hari ini demi mengamankan keuntungan!");
+            lastLockPush = TimeCurrent();
+         }
+         return false;
+      }
+      else
+      {
+         g_dailyProfitLocked = false;
+      }
+   }
+
+   // 2.2 Maximum Daily Trades Cap (v3.30)
+   if (InpUseMaxDailyTrades)
+   {
+      int totalTradesToday = countToday; // Closed trades today
+      int openTotal = OrdersTotal();
+      for (int op = 0; op < openTotal; op++)
+      {
+         if (OrderSelect(op, SELECT_BY_POS, MODE_TRADES))
+         {
+            if (OrderSymbol() == Symbol() && OrderMagicNumber() == InpMagicNumber && OrderOpenTime() >= todayStart)
+               totalTradesToday++;
+         }
+      }
+      g_todayTradesCount = totalTradesToday;
+      if (totalTradesToday >= InpMaxDailyTrades)
+      {
+         g_lastSignalType = "MAX TRADES HARIAN TERCAPAI (" + IntegerToString(totalTradesToday) + "/" + IntegerToString(InpMaxDailyTrades) + "): DISIPLIN KUOTA";
+         return false;
+      }
+   }
+
    return true;
 }
 
@@ -1798,6 +1907,7 @@ SMCStructureAnalysis AnalyzeMarketStructure()
 //+------------------------------------------------------------------+
 void DetectOrderBlocks(int lookback, double currentAtr)
 {
+   if (currentAtr <= 0.0) return;
    int limit = MathMin(lookback, InpOBMaxAgeBars);
    double dispThreshold = InpOBDisplacementAtrMult * currentAtr;
 
@@ -2650,7 +2760,7 @@ void DrawSMCObjectsOnChart()
 //+------------------------------------------------------------------+
 void ManageActiveTrades()
 {
-   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseStructuralTrailing && !InpUseCandleTrailing && !InpUsePointsTrailing)
+   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseStructuralTrailing && !InpUseCandleTrailing && !InpUsePointsTrailing && !InpUseMilestoneRatchet)
       return;
 
    // Bersihkan global variable jika tidak ada order aktif
@@ -2660,7 +2770,7 @@ void ManageActiveTrades()
       for (int g = totalGV - 1; g >= 0; g--)
       {
          string gvName = GlobalVariableName(g);
-         if (StringFind(gvName, "VIKAR_PARTIAL_") == 0)
+         if (StringFind(gvName, "VIKAR_PARTIAL_") == 0 || StringFind(gvName, "VIKAR_INIT_R_") == 0)
             GlobalVariableDel(gvName);
       }
    }
@@ -2948,6 +3058,59 @@ void ManageActiveTrades()
                {
                   sl = candleSL;
                   Print("[TRAILING CANDLE MT4] Posisi SELL #", ticket, " SL turun di atas ekor lilin High[1]: ", candleSL);
+               }
+            }
+         }
+      }
+
+      // 2.7 Milestone Ratchet Trailing (v3.30 Pro Discipline)
+      // Tiered profit locking: Locks +0.5R at 1.0R profit, +1.0R at 1.5R, +1.5R at 2.0R
+      if (InpUseMilestoneRatchet)
+      {
+         string gvRKey = "VIKAR_INIT_R_" + IntegerToString(ticket);
+         double rDist = 0.0;
+         if (GlobalVariableCheck(gvRKey)) rDist = GlobalVariableGet(gvRKey);
+         else
+         {
+            rDist = (type == OP_BUY) ? (open - sl) : (sl - open);
+            if (rDist <= 0.0) rDist = PipToPrice(InpFixedSLPips);
+            GlobalVariableSet(gvRKey, rDist);
+         }
+
+         if (rDist > 0.0)
+         {
+            if (type == OP_BUY)
+            {
+               double pDist = current - open;
+               double targetSL = 0.0;
+               if (pDist >= 2.0 * rDist)      targetSL = NormalizeDouble(open + (1.5 * rDist), Digits);
+               else if (pDist >= 1.5 * rDist) targetSL = NormalizeDouble(open + (1.0 * rDist), Digits);
+               else if (pDist >= 1.0 * rDist) targetSL = NormalizeDouble(open + (0.5 * rDist), Digits);
+
+               if (targetSL > sl && (current - targetSL) >= minStopDist)
+               {
+                  if (OrderModify(ticket, open, targetSL, tp, 0, clrGreen))
+                  {
+                     sl = targetSL;
+                     Print("[MILESTONE RATCHET MT4] BUY #", ticket, " SL dinaikkan mengunci profit ke: ", targetSL);
+                  }
+               }
+            }
+            else if (type == OP_SELL)
+            {
+               double pDist = open - current;
+               double targetSL = 0.0;
+               if (pDist >= 2.0 * rDist)      targetSL = NormalizeDouble(open - (1.5 * rDist), Digits);
+               else if (pDist >= 1.5 * rDist) targetSL = NormalizeDouble(open - (1.0 * rDist), Digits);
+               else if (pDist >= 1.0 * rDist) targetSL = NormalizeDouble(open - (0.5 * rDist), Digits);
+
+               if (targetSL > 0.0 && (sl == 0.0 || targetSL < sl) && (targetSL - current) >= minStopDist)
+               {
+                  if (OrderModify(ticket, open, targetSL, tp, 0, clrGreen))
+                  {
+                     sl = targetSL;
+                     Print("[MILESTONE RATCHET MT4] SELL #", ticket, " SL diturunkan mengunci profit ke: ", targetSL);
+                  }
                }
             }
          }
@@ -3352,8 +3515,33 @@ void CheckTradeSignal()
 
             int ticket = OrderSend(Symbol(), OP_BUY, lots, Ask, InpDeviation, slPrice, tpPrice, tradeCmt, InpMagicNumber, 0, clrBlue);
 
+            if (ticket <= 0)
+            {
+               int err = GetLastError();
+               if (err == 130) // ERR_INVALID_STOPS (ECN Market Execution Broker Requirement)
+               {
+                  Print("[ECN RETRY BUY] Broker ECN menolak SL/TP awal. Membuka posisi tanpa SL/TP lalu modifikasi...");
+                  ticket = OrderSend(Symbol(), OP_BUY, lots, Ask, InpDeviation, 0, 0, tradeCmt, InpMagicNumber, 0, clrBlue);
+                  if (ticket > 0)
+                  {
+                     Sleep(100);
+                     if (OrderModify(ticket, Ask, slPrice, tpPrice, 0, clrBlue))
+                        Print("[ECN BUY SUCCESS] SL dan TP berhasil dipasang pada tiket #", ticket);
+                     else
+                        Print("[ECN BUY WARN] OrderModify SL/TP gagal: ", GetLastError());
+                  }
+                  else err = GetLastError();
+               }
+               if (ticket <= 0)
+               {
+                  Print("[BUY REJECTED MT4] Error: ", err);
+                  g_lastSignalType = "ORDER DITOLAK BROKER (Error " + IntegerToString(err) + ")";
+               }
+            }
+
             if (ticket > 0)
             {
+               GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString(ticket), MathMax(Ask - slPrice, 10 * Point));
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
                SaveTradeEntrySnapshotMT4(ticket, 1, activePatIdBUY, scoreRes.totalScore, currentAtr);
@@ -3369,12 +3557,6 @@ void CheckTradeSignal()
                }
                UpdateDashboard();
                return;
-            }
-            else
-            {
-               int err = GetLastError();
-               Print("[BUY REJECTED MT4] Error: ", err);
-               g_lastSignalType = "ORDER DITOLAK BROKER (Error " + IntegerToString(err) + ")";
             }
          }
       }
@@ -3591,8 +3773,33 @@ void CheckTradeSignal()
 
             int ticket = OrderSend(Symbol(), OP_SELL, lots, Bid, InpDeviation, slPrice, tpPrice, tradeCmt, InpMagicNumber, 0, clrRed);
 
+            if (ticket <= 0)
+            {
+               int err = GetLastError();
+               if (err == 130) // ERR_INVALID_STOPS (ECN Market Execution Broker Requirement)
+               {
+                  Print("[ECN RETRY SELL] Broker ECN menolak SL/TP awal. Membuka posisi tanpa SL/TP lalu modifikasi...");
+                  ticket = OrderSend(Symbol(), OP_SELL, lots, Bid, InpDeviation, 0, 0, tradeCmt, InpMagicNumber, 0, clrRed);
+                  if (ticket > 0)
+                  {
+                     Sleep(100);
+                     if (OrderModify(ticket, Bid, slPrice, tpPrice, 0, clrRed))
+                        Print("[ECN SELL SUCCESS] SL dan TP berhasil dipasang pada tiket #", ticket);
+                     else
+                        Print("[ECN SELL WARN] OrderModify SL/TP gagal: ", GetLastError());
+                  }
+                  else err = GetLastError();
+               }
+               if (ticket <= 0)
+               {
+                  Print("[SELL REJECTED MT4] Error: ", err);
+                  g_lastSignalType = "ORDER DITOLAK BROKER (Error " + IntegerToString(err) + ")";
+               }
+            }
+
             if (ticket > 0)
             {
+               GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString(ticket), MathMax(slPrice - Bid, 10 * Point));
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
                SaveTradeEntrySnapshotMT4(ticket, -1, activePatIdSELL, scoreRes.totalScore, currentAtr);
@@ -3608,12 +3815,6 @@ void CheckTradeSignal()
                }
                UpdateDashboard();
                return;
-            }
-            else
-            {
-               int err = GetLastError();
-               Print("[SELL REJECTED MT4] Error: ", err);
-               g_lastSignalType = "ORDER DITOLAK BROKER (Error " + IntegerToString(err) + ")";
             }
          }
       }
@@ -3689,12 +3890,12 @@ void UpdateDashboard()
    TradeStats statsDaily = CalculateHistoryStats(startOfDay);
    TradeStats statsWeekly= CalculateHistoryStats(startOfWeek);
 
-   double totalGrowthPct = (g_eaInitialBalance > 0) ? ((balance - g_eaInitialBalance) / g_eaInitialBalance * 100.0) : 0.0;
+   double totalGrowthPct = (g_eaInitialBalance > 0.0001) ? ((balance - g_eaInitialBalance) / g_eaInitialBalance * 100.0) : 0.0;
 
    int panelX = g_panelX;
    int panelY = g_panelY;
    int panelW = g_panelW;
-   int panelH = InpShowPnLStats ? 630 : 550;
+   int panelH = InpShowPnLStats ? 646 : 566;
 
    // 1. Container Utama
    CreateOrUpdateRect("VIKAR_HUD_BG", panelX, panelY, panelW, panelH, C'15,23,42', C'51,65,85');
@@ -3851,7 +4052,15 @@ void UpdateDashboard()
    string pfStr = InpUseEquityGuardian ? ("DD: " + DoubleToString(g_currentDailyDDPct, 1) + "% / Max " + DoubleToString(InpMaxDailyEquityDDPct, 1) + "%") : "OFF";
    color pfClr = (g_currentDailyDDPct >= InpMaxDailyEquityDDPct * 0.75) ? C'248,113,113' : C'148,163,184';
    CreateOrUpdateText("VIKAR_HUD_PROPFIRM", panelX + 12, currY + 190, "[Prop Firm Guard]: " + pfStr + " | Trap Hunter: AKTIF", pfClr, 7, "Segoe UI Bold");
-   currY += 212;
+
+   string discStatus = "AKTIF";
+   color discClr = C'74,222,128';
+   if (g_dailyProfitLocked) { discStatus = "DONE FOR THE DAY (LOCKED)"; discClr = C'251,191,36'; }
+   else if (IsInRolloverWindow()) { discStatus = "ROLLOVER FREEZE"; discClr = C'248,113,113'; }
+   else if (InpUseMaxDailyTrades && g_todayTradesCount >= InpMaxDailyTrades) { discStatus = "MAX TRADES REACHED"; discClr = C'248,113,113'; }
+   string discStr = "Trades: " + IntegerToString(g_todayTradesCount) + (InpUseMaxDailyTrades ? ("/" + IntegerToString(InpMaxDailyTrades)) : "") + " | " + discStatus;
+   CreateOrUpdateText("VIKAR_HUD_PRODISCIPLINE", panelX + 12, currY + 203, "[Pro Discipline] : " + discStr, discClr, 7, "Segoe UI Bold");
+   currY += 228;
 
    // 6. Inset Live Execution Status
    CreateOrUpdateRect("VIKAR_HUD_STATUS_BG", panelX + 8, currY, panelW - 16, 52, C'15,23,42', C'2,132,199');
@@ -3939,6 +4148,20 @@ void OnTick()
 
    // 3. Hanya Cari Sinyal Saat Lilin Baru Selesai
    if (!IsNewBar()) return;
+
+   // 3.0 Rollover Spread Blackout Shield (v3.30)
+   if (IsInRolloverWindow())
+   {
+      g_lastSignalType = "ROLLOVER FREEZE: JENDELA SPREAD MELEBAR TENGAH MALAM";
+      return;
+   }
+
+   // 3.05 Institutional Killzones Sesi Filter (v3.30)
+   if (!IsInKillzoneWindow())
+   {
+      g_lastSignalType = "DILUAR KILLZONE INSTITUSIONAL (LONDON & NY ONLY)";
+      return;
+   }
 
    // 3.1 Periksa Proteksi Circuit Breaker
    if (!CheckCircuitBreakers()) return;

@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Buku Panduan Lengkap EA Vikar 4-Pillar Pro (v3.30)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+    @bottom-right {
+      content: counter(page);
+      font-size: 8pt;
+      color: #64748b;
+      font-family: 'Inter', sans-serif;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.55;
+    font-size: 9.5pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* COVER PAGE */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(145deg, #090d16 0%, #0f172a 50%, #1e293b 100%);
+    color: #ffffff;
+    padding: 40px 35px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    page-break-after: always;
+  }
+
+  .cover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding-bottom: 15px;
+  }
+
+  .cover-badge {
+    background: rgba(2, 132, 199, 0.25);
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cover-title-box {
+    margin-top: 40px;
+  }
+
+  .cover-title-sub {
+    color: #38bdf8;
+    font-size: 11pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+  }
+
+  .cover-title {
+    font-size: 26pt;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0 0 15px 0;
+    background: linear-gradient(90deg, #ffffff, #93c5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .cover-desc {
+    font-size: 11pt;
+    color: #94a3b8;
+    max-width: 580px;
+    line-height: 1.6;
+    margin-bottom: 25px;
+  }
+
+  .cover-pillars-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .pillar-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .pillar-card-num {
+    font-size: 8pt;
+    font-weight: 700;
+    color: #38bdf8;
+    text-transform: uppercase;
+  }
+
+  .pillar-card-title {
+    font-size: 9.5pt;
+    font-weight: 700;
+    color: #ffffff;
+    margin-top: 3px;
+  }
+
+  .pillar-card-desc {
+    font-size: 7.5pt;
+    color: #94a3b8;
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+
+  .cover-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    padding-top: 18px;
+  }
+
+  .cover-footer-meta {
+    font-size: 8pt;
+    color: #64748b;
+  }
+
+  .cover-footer-meta strong {
+    color: #cbd5e1;
+  }
+
+  /* HEADINGS */
+  h1 {
+    font-size: 17pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: 2.5px solid #0284c7;
+    padding-bottom: 6px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  h2 {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    border-left: 3.5px solid #0284c7;
+    padding-left: 8px;
+  }
+
+  h3 {
+    font-size: 10.5pt;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 12px;
+    margin-bottom: 6px;
+  }
+
+  p {
+    margin: 0 0 8px 0;
+    text-align: justify;
+  }
+
+  /* BADGES & TAGS */
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-blue { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+  .badge-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .badge-amber { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .badge-red { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .badge-purple { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
+  /* CALLOUT BOXES */
+  .callout {
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 8.5pt;
+    line-height: 1.5;
+  }
+
+  .callout-tip {
+    background-color: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    color: #166534;
+  }
+
+  .callout-info {
+    background-color: #f0f9ff;
+    border-left: 4px solid #0284c7;
+    color: #075985;
+  }
+
+  .callout-warn {
+    background-color: #fffbeb;
+    border-left: 4px solid #d97706;
+    color: #92400e;
+  }
+
+  .callout-danger {
+    background-color: #fef2f2;
+    border-left: 4px solid #dc2626;
+    color: #991b1b;
+  }
+
+  /* TABLES */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 16px 0;
+    font-size: 8pt;
+  }
+
+  th {
+    background-color: #1e293b;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 7px 9px;
+    border: 1px solid #334155;
+  }
+
+  td {
+    padding: 6px 9px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 8pt;
+    background-color: #f1f5f9;
+    color: #0f172a;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* GRID SYSTEMS */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 10px 0;
+  }
+
+  .card-feature {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .card-feature h4 {
+    margin: 0 0 4px 0;
+    font-size: 9.5pt;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-feature p {
+    font-size: 8pt;
+    color: #475569;
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  /* DIAGRAM BOXES */
+  .flow-box {
+    background: #f8fafc;
+    border: 1px dashed #94a3b8;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 7.5pt;
+    line-height: 1.4;
+    color: #334155;
+    margin: 10px 0;
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <div class="cover-header">
+    <div style="font-size: 13pt; font-weight: 800; letter-spacing: 1px; color: #ffffff;">
+      VIKAR ALGO RESEARCH
+    </div>
+    <div class="cover-badge">v3.30 APEX INSTITUTIONAL SUITE</div>
+  </div>
+
+  <div class="cover-title-box">
+    <div class="cover-title-sub">Buku Panduan Lengkap & Spesifikasi Sistem</div>
+    <div class="cover-title">EA VIKAR 4-PILLAR PRO</div>
+    <div class="cover-desc">
+      Arsitektur robot trading otomatis institusional menggabungkan Smart Money Concepts (SMC), Ribbon EMA Dinamis, Fibonacci OTE, Auto-Pivot Key Level, AI Neuro-Calibration (v3.20), dan Pro Trader Discipline Suite (v3.30).
+    </div>
+
+    <div class="cover-pillars-grid">
+      <div class="pillar-card">
+        <div class="pillar-card-num">Pilar 1</div>
+        <div class="pillar-card-title">SMC Institusional</div>
+        <div class="pillar-card-desc">BOS, CHoCH, Order Block, FVG, dan Dealing Range Discount/Premium.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">Pilar 2</div>
+        <div class="pillar-card-title">Triple Ribbon EMA</div>
+        <div class="pillar-card-desc">Konfirmasi momentum EMA 8, 21, dan makro tren EMA 125.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">Pilar 3</div>
+        <div class="pillar-card-title">Golden Pocket Fibo</div>
+        <div class="pillar-card-desc">Filter area rasio emas 50.0% s/d 61.8% OTE.</div>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-card-num">Pilar 4</div>
+        <div class="pillar-card-title">Pivot Daily S/R</div>
+        <div class="pillar-card-desc">Double alignment support & resistance harian.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <div class="cover-footer-meta">
+      Dokumentasi Resmi & Panduan Pengguna<br>
+      Kompatibel: <strong>MetaTrader 4 (QuickPro) & MetaTrader 5</strong><br>
+      Aset Acuan: <strong>XAUUSD (Gold) M5 & M15 Scalping</strong>
+    </div>
+    <div class="cover-footer-meta" style="text-align: right;">
+      Rilis Versi: <strong>v3.30 Pro Edition</strong><br>
+      Tanggal Terbit: <strong>September 2026</strong><br>
+      Lisensi: <strong>Hak Akses Eksklusif User</strong>
+    </div>
+  </div>
+</div>
+
+<!-- HALAMAN 2: DAFTAR ISI & BAB 1 -->
+<h1>📚 DAFTAR ISI PANDUAN</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 15%;">Bab</th>
+      <th style="width: 65%;">Topik Pembahasan</th>
+      <th style="width: 20%; text-align: center;">Kategori</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>BAB 1</strong></td>
+      <td>Arsitektur Inti 4 Pilar Konfluensi Pasar</td>
+      <td><span class="badge badge-blue">Strategi</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 2</strong></td>
+      <td>Suite 13 Pola Lilin & Reversal Institusional</td>
+      <td><span class="badge badge-purple">Pola Candle</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 3</strong></td>
+      <td>Kecerdasan Buatan (AI): Neuro-Calibration & Self-Healing</td>
+      <td><span class="badge badge-amber">AI Engine</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 4</strong></td>
+      <td>Sistem Proteksi Modal, Circuit Breaker & Prop Firm Guardian</td>
+      <td><span class="badge badge-red">Manajemen Risiko</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 5</strong></td>
+      <td>Pro Trader Discipline Suite (Fitur Baru v3.30)</td>
+      <td><span class="badge badge-green">Disiplin Harian</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 6</strong></td>
+      <td>5 Sistem Trailing Stop Berlapis & Manajemen Posisi</td>
+      <td><span class="badge badge-blue">Trailing Stop</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 7</strong></td>
+      <td>Panduan Pemasangan & Pemakaian di MT4 dan MT5</td>
+      <td><span class="badge badge-green">Tutorial</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 8</strong></td>
+      <td>Tabel Lengkap Parameter Input & Rekomendasi Nilai</td>
+      <td><span class="badge badge-amber">Konfigurasi</span></td>
+    </tr>
+    <tr>
+      <td><strong>BAB 9</strong></td>
+      <td>Manajemen Modal, Aturan Lot, dan FAQ Penting</td>
+      <td><span class="badge badge-red">Finansial</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+<h1>🏛️ BAB 1: ARSITEKTUR INTI 4 PILAR KONFLUENSI</h1>
+<p>
+  Robot trading <strong>VIKAR 4-Pillar Pro</strong> dirancang dengan prinsip dasar trader institusional dunia: <em>"Never trade on a single indicator"</em>. Robot tidak pernah membuka order hanya karena satu sinyal lilin atau indikator biasa, melainkan mengharuskan terjadinya <strong>konfluensi serempak (pembobotan skor minimal 65-75 poin)</strong> dari 4 pilar analisa berikut:
+</p>
+
+<div class="grid-2">
+  <div class="card-feature">
+    <h4><span>1. SMC Struktur & Likuiditas</span> <span class="badge badge-blue">Pilar 1</span></h4>
+    <p>
+      Mengidentifikasi Break of Structure (BOS), Change of Character (CHoCH), Order Block institusional (Demand & Supply Base), serta Fair Value Gap (FVG Imbalance). Robot juga memfilter harga berdasarkan <em>Dealing Range</em>: <strong>hanya BUY di zona Discount</strong> (murah) dan <strong>hanya SELL di zona Premium</strong> (mahal).
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>2. Triple Ribbon EMA</span> <span class="badge badge-purple">Pilar 2</span></h4>
+    <p>
+      Memanfaatkan 3 lapis Exponential Moving Average berkecepatan tinggi: <strong>EMA 8 Aqua</strong> (Trigger Entry), <strong>EMA 21 Magenta</strong> (Dinamika Pullback), dan <strong>EMA 125 Gold</strong> (Filter Arah Makro Tren). Posisi BUY hanya diizinkan jika harga berada di atas EMA 125.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>3. Golden Pocket Fibonacci</span> <span class="badge badge-amber">Pilar 3</span></h4>
+    <p>
+      Menarik garis Fibonacci secara otomatis dari ayunan Swing Low ke Swing High terakhir. Robot mencari area pantulan optimal (*Optimal Trade Entry* - OTE) pada zona <strong>50.0% s/d 61.8% Golden Pocket</strong> untuk menghasilkan Risk-to-Reward terbaik.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>4. Daily Pivot Point S/R</span> <span class="badge badge-green">Pilar 4</span></h4>
+    <p>
+      Kalkulasi otomatis garis Pivot harian, R1, R2, S1, dan S2 dari harga penutupan hari kemarin. Digunakan sebagai <em>Double Alignment</em> untuk memvalidasi bahwa harga tidak sedang membentur tembok resisten/support horizontal besar.
+    </p>
+  </div>
+</div>
+
+<div class="callout callout-info">
+  <strong>Sistem Penilaian Skor Konfluensi (0 - 100 Poin):</strong><br>
+  Tiap setup yang terdeteksi dihitung skor kualitasnya secara otomatis: Struktur SMC (20 pt) + Rebound Order Block (20 pt) + FVG (15 pt) + Penembusan BOS (15 pt) + Fibonacci OTE (10 pt) + Ribbon EMA (10 pt) + Pola Lilin (10 pt) + Bonus VSA (+10 pt). Hanya setup dengan skor <strong>&ge; 65 poin (Grade A)</strong> atau <strong>&ge; 85 poin (Grade A+ Sniper)</strong> yang akan dieksekusi.
+</div>
+
+<!-- HALAMAN 3: BAB 2 -->
+<div class="page-break"></div>
+
+<h1>🕯️ BAB 2: SUITE 13 POLA LILIN & REVERSAL INSTITUSIONAL</h1>
+<p>
+  EA dilengkapi dengan modul deteksi <strong>13 Pola Candlestick & Price Action Institusional</strong> yang terus dipantau secara non-repaint pada saat penutupan lilin (<em>Bar Close Rule</em>):
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 6%;">ID</th>
+      <th style="width: 25%;">Nama Pola Lilin</th>
+      <th style="width: 15%;">Tipe Setup</th>
+      <th style="width: 54%;">Karakteristik & Logika Eksekusi</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>0</code></td>
+      <td><strong>Setup Standar / PA</strong></td>
+      <td><span class="badge badge-blue">Trend Flow</span></td>
+      <td>Konfluensi 4-pilar standar saat pullback sehat menyentuh Ribbon EMA 21.</td>
+    </tr>
+    <tr>
+      <td><code>1</code></td>
+      <td><strong>Pin Bar / Hammer</strong></td>
+      <td><span class="badge badge-green">Rejection</span></td>
+      <td>Ekor panjang &ge; 60% dari total panjang candle, menandakan penolakan keras harga di level kunci.</td>
+    </tr>
+    <tr>
+      <td><code>2</code></td>
+      <td><strong>Engulfing Absorption</strong></td>
+      <td><span class="badge badge-green">Absorption</span></td>
+      <td>Badan lilin menelan 100% candle sebelumnya, menandakan serapan likuiditas oleh institusi besar.</td>
+    </tr>
+    <tr>
+      <td><code>3</code></td>
+      <td><strong>Tweezer Rejection</strong></td>
+      <td><span class="badge badge-green">Double Test</span></td>
+      <td>Dua lilin beruntun dengan titik Low/High yang nyaris presisi menyentuh level support/resisten.</td>
+    </tr>
+    <tr>
+      <td><code>4</code></td>
+      <td><strong>Morning / Evening Star</strong></td>
+      <td><span class="badge badge-purple">3-Bar Reversal</span></td>
+      <td>Pola 3 lilin pembalikan arah klasik (Candle tren &rarr; Lilin kompresi doji &rarr; Candle dorongan kuat).</td>
+    </tr>
+    <tr>
+      <td><code>5</code></td>
+      <td><strong>FVG Rebound</strong></td>
+      <td><span class="badge badge-blue">Mitigation</span></td>
+      <td>Harga kembali mengisi celah Fair Value Gap (ketidakseimbangan harga) lalu memantul kembali.</td>
+    </tr>
+    <tr>
+      <td><code>6</code></td>
+      <td><strong>Three Soldiers / Crows</strong></td>
+      <td><span class="badge badge-purple">Momentum</span></td>
+      <td>Tiga candle berbadan tebal searah secara berturut-turut menandakan dominasi mutlak satu pihak.</td>
+    </tr>
+    <tr>
+      <td><code>7</code></td>
+      <td><strong>Harami Inside Bar</strong></td>
+      <td><span class="badge badge-amber">Compression</span></td>
+      <td>Lilin anak berada di dalam rentang lilin induk, mengidentifikasi ledakan breakout setelah kompresi.</td>
+    </tr>
+    <tr>
+      <td><code>8</code></td>
+      <td><strong>Piercing / Dark Cloud</strong></td>
+      <td><span class="badge badge-green">Penetration</span></td>
+      <td>Candle kedua menembus lebih dari 50% badan candle pertama di area ekstrem.</td>
+    </tr>
+    <tr>
+      <td><code>9</code></td>
+      <td><strong>Dragonfly / Gravestone</strong></td>
+      <td><span class="badge badge-green">Extreme Wick</span></td>
+      <td>Doji ekstrem tanpa badan di mana pembukaan dan penutupan berada di ujung tertinggi/terendah.</td>
+    </tr>
+    <tr>
+      <td><code>10</code></td>
+      <td><strong>Inverted Hammer / Star</strong></td>
+      <td><span class="badge badge-green">Rejection</span></td>
+      <td>Penolakan harga di ujung tren yang mengindikasikan kelelahan daya dorong pembeli/penjual.</td>
+    </tr>
+    <tr>
+      <td><code>11</code></td>
+      <td><strong>Momentum BOS Breakout</strong></td>
+      <td><span class="badge badge-blue">Breakout</span></td>
+      <td>Candle besar (*displacement*) menembus titik ayunan struktur pasar dengan dukungan volume tinggi.</td>
+    </tr>
+    <tr>
+      <td><code>12</code></td>
+      <td><strong>Liquidity Sweep Trap</strong></td>
+      <td><span class="badge badge-red">Trap Hunter</span></td>
+      <td>Jebakan manipulasi bandar: menyapu Stop Loss trader retail di luar level kunci lalu langsung berbalik arah tajam.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Kelebihan Fitur Trap Hunter (Pola 12):</strong><br>
+  Pola Liquidity Sweep Trap Hunter dirancang khusus untuk pasar emas (Gold). Ketika institusi besar sengaja melakukan fake breakout 4-30 pips di luar High/Low harian untuk memakan SL retail, robot ini justru mengambil posisi reversal dengan Stop Loss yang sangat rapat di ujung jarum ekor bandar.
+</div>
+
+<!-- HALAMAN 4: BAB 3 -->
+<div class="page-break"></div>
+
+<h1>🧠 BAB 3: KECERDASAN BUATAN (AI) & KOREKSI DIRI MANDIRI</h1>
+<p>
+  Salah satu keunggulan terbesar EA VIKAR dibanding robot konvensional adalah kemampuannya untuk <strong>belajar dari kesalahan</strong> dan <strong>menyesuaikan diri secara otomatis terhadap kondisi pasar</strong>:
+</p>
+
+<h2>1. Autonomous Neuro-Calibration & Self-Tuning (v3.20)</h2>
+<p>
+  Secara otomatis membaca rasio volatilitas terkini (ATR 14 vs ATR 100) dan indeks pasar (Choppiness Index) untuk mengubah parameter secara mandiri:
+</p>
+<ul>
+  <li><strong>Kondisi Normal</strong>: Menggunakan buffer SL standar 1.0x dan cooldown 2 bar.</li>
+  <li><strong>Pasar Volatilitas Tinggi / Berita (Vol Ratio &ge; 1.25)</strong>: Robot memperlebar jarak SL dan buffer trailing lilin sebesar <strong>1.4x</strong> agar order tidak tersapu noise, serta menaikkan syarat skor entry (+10 pt).</li>
+  <li><strong>Pasar Sideways Choppy (CI &gt; 61.8)</strong>: Robot memperketat buffer SL menjadi <strong>0.9x</strong> untuk menghemat risiko modal dan menambah cooldown jeda order.</li>
+  <li><strong>Anti-Tilt Mode Pasca 2x Loss Beruntun</strong>: Robot menaikkan syarat skor kualitas konfluensi (+5 hingga +15 pt) dan melipatgandakan cooldown lilin (4-8 bar) untuk mencegah <em>revenge trading</em>.</li>
+</ul>
+
+<h2>2. Mesin Otopsi 7 Skenario Pasca-SL (Self-Healing Engine v3.10)</h2>
+<p>
+  Jika terjadi transaksi yang terkena Stop Loss riil, robot tidak langsung membuka posisi baru secara serampangan. Robot mengaktifkan algoritma otopsi untuk mendiagnosa 1 dari 7 penyebab kegagalan:
+</p>
+
+<div class="flow-box">
+[DIAGNOSA OTOPSI]
+1. VOLATILITAS ABNORMAL (NEWS SHOCK) &rarr; Rentang lilin &gt; 2x ATR
+2. JEBAKAN SIDEWAYS NOISE           &rarr; Choppiness Index &gt; 61.8
+3. PEMBALIKAN STRUKTUR MAKRO        &rarr; Lilin menembus batas EMA 125
+4. JAM RAWAN LOSS (TOXIC HOUR)      &rarr; Terjadi 2x loss pada jam server yang sama
+5. DIRECTIONAL ERROR (MELAWAN TREN)  &rarr; Posisi melawan arah ribbon makro
+6. PENGUJIAN LEVEL GAGAL            &rarr; Penolakan level S/R tidak valid
+7. SPREAD ANOMALY SPIKE             &rarr; Pelebaran spread sesaat di luar batas wajar
+</div>
+
+<p>
+  <strong>Tindakan Koreksi Diri Otomatis:</strong>
+  Robot memberikan penalti skor (+10 poin), mengarantina pola lilin yang gagal selama 15 bar, memblokir arah transaksi yang sama selama 12 bar, dan memberikan ekstra buffer SL pada 3 transaksi berikutnya.
+</p>
+
+<h2>3. Dynamic Pattern Performance Matrix</h2>
+<p>
+  Robot menyimpan buku rapor performa untuk ke-13 pola lilin. Jika suatu pola memiliki Win Rate &lt; 40% (minimal 3x transaksi), pola tersebut akan di-<strong>blacklist sementara</strong>. Sebaliknya, jika Win Rate &ge; 70%, pola tersebut mendapat <strong>Boost (+10 poin)</strong>.
+</p>
+
+<!-- HALAMAN 5: BAB 4 & 5 -->
+<div class="page-break"></div>
+
+<h1>🛡️ BAB 4: PROTEKSI MODAL & PROP FIRM EQUITY GUARDIAN</h1>
+
+<div class="grid-2">
+  <div class="card-feature">
+    <h4><span>Prop Firm Equity Guardian</span> <span class="badge badge-red">Anti-Bust</span></h4>
+    <p>
+      Mengunci equity harian secara ketat. Jika penurunan modal harian (Drawdown) menyentuh batas maksimal (default <strong>4.0%</strong>), robot langsung menutup seluruh order aktif dan mengunci trading hingga esok hari. Menjamin akun tantangan Prop Firm (FTMO, FundedNext, dll) tidak akan pernah terkena pelanggaran batas harian.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>Circuit Breaker 2x Loss Cooldown</span> <span class="badge badge-amber">Anti-Overtrade</span></h4>
+    <p>
+      Jika robot mengalami 2 kali kerugian berturut-turut, sistem Circuit Breaker otomatis menghentikan aktivitas trading selama <strong>4 jam penuh</strong>. Memberikan waktu bagi pasar untuk meredakan gejolak sebelum robot mulai mencari setup baru.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>Friday Weekend Guard</span> <span class="badge badge-blue">Anti-Gap</span></h4>
+    <p>
+      Setiap hari Jumat pukul <strong>21:00 server time</strong>, robot otomatis melikuidasi seluruh posisi mengambang dan membekukan order baru. Menghindarkan akun Anda dari risiko lonjakan harga (*gap open*) yang tidak terduga pada pembukaan hari Senin pagi.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>Pre-News & Spread Spike Shield</span> <span class="badge badge-red">News Filter</span></h4>
+    <p>
+      Membekukan entry baru 15 menit sebelum hingga 15 menit sesudah rilis berita besar (NFP, CPI, FOMC, Fed Rate). Serta membekukan transaksi secara seketika jika spread emas melebar abnormal di atas batas toleransi broker.
+    </p>
+  </div>
+</div>
+
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+<h1>🎯 BAB 5: PRO TRADER DISCIPLINE SUITE (FITUR BARU v3.30)</h1>
+<p>
+  Menanamkan kebiasaan trader profesional kelas dunia ke dalam logika robot:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">Fitur Disiplin</th>
+      <th style="width: 20%;">Parameter Utama</th>
+      <th style="width: 55%;">Manfaat & Cara Kerja Nyata</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Daily Profit Target Lockdown ("Done for the Day")</strong></td>
+      <td><code>InpUseDailyProfitLockdown = true</code><br><code>InpDailyProfitTargetMoney = 50.0</code></td>
+      <td>Begitu profit harian bersih menyentuh target (misal +$50 atau +2% modal), robot <strong>mengunci keuntungan dan berhenti mencari order baru</strong> hingga esok hari. Mengeliminasi penyakit mengembalikan keuntungan ke pasar.</td>
+    </tr>
+    <tr>
+      <td><strong>Midnight Rollover Spread Blackout</strong></td>
+      <td><code>InpUseRolloverGuard = true</code><br><code>23:50 s/d 00:25</code></td>
+      <td>Membekukan seluruh pembukaan posisi baru selama 35 menit jendela pergantian hari perbankan dunia saat spread broker melebar ekstrem (100-300+ point).</td>
+    </tr>
+    <tr>
+      <td><strong>Maximum Daily Trades Cap</strong></td>
+      <td><code>InpUseMaxDailyTrades = true</code><br><code>InpMaxDailyTrades = 5</code></td>
+      <td>Membatasi kuota transaksi maksimal 5 posisi per hari. Mengutamakan kualitas setup dibanding kuantitas dan menyaring transaksi acak di pasar sideways.</td>
+    </tr>
+    <tr>
+      <td><strong>Milestone Ratchet Trailing</strong></td>
+      <td><code>InpUseMilestoneRatchet = true</code></td>
+      <td>Kunci untung bertingkat berdasarkan rasio risiko (R):<br>
+      &bull; Profit menyentuh <strong>+1.0R</strong> &rarr; SL dikunci ke <strong>+0.5R</strong>.<br>
+      &bull; Profit menyentuh <strong>+1.5R</strong> &rarr; SL dikunci ke <strong>+1.0R</strong>.<br>
+      &bull; Profit menyentuh <strong>+2.0R</strong> &rarr; SL dikunci ke <strong>+1.5R</strong>.</td>
+    </tr>
+    <tr>
+      <td><strong>Institutional Killzones</strong></td>
+      <td><code>InpTradeKillzonesOnly = false</code></td>
+      <td>Opsi membatasi trading hanya di sesi tersibuk: London Killzone (09:00 - 13:00 server) dan New York Killzone (14:00 - 20:00 server).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- HALAMAN 6: BAB 6 & 7 -->
+<div class="page-break"></div>
+
+<h1>📈 BAB 6: 5 SISTEM TRAILING STOP BERLAPIS & MANAJEMEN POSISI</h1>
+<p>
+  EA VIKAR dilengkapi sistem pengawalan profit bertingkat (*multi-layer trailing*) yang bekerja secara simultan dengan aturan <strong>Ratchet (Satu Arah)</strong>: Stop Loss hanya akan bergeser jika harga baru lebih menguntungkan dibanding posisi saat ini dan tidak akan pernah mundur ke belakang.
+</p>
+
+<div class="grid-2">
+  <div class="card-feature">
+    <h4><span>1. Auto-Breakeven (SL+)</span> <span class="badge badge-green">Proteksi Awal</span></h4>
+    <p>
+      Begitu posisi berjalan floating profit <strong>+5 pips (50 point)</strong>, SL langsung dipindahkan ke <strong>+2 pips (20 point)</strong> di atas harga open. Posisi otomatis bebas risiko (*risk-free trade*).
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>2. Dynamic Points Trailing</span> <span class="badge badge-blue">Pengawal Harga</span></h4>
+    <p>
+      Aktif setelah profit mencapai <strong>40 point</strong>. Menjaga jarak pengawalan <strong>30 point</strong> di belakang harga, dan menggeser SL tiap harga bergerak maju sejauh <strong>10 point</strong>.
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>3. Candle-by-Candle Trailing</span> <span class="badge badge-purple">Ekor Lilin</span></h4>
+    <p>
+      Tiap candle baru terbentuk, SL dinaikkan tepat di bawah titik terendah candle sebelumnya (<code>Low[1]</code> untuk BUY) dengan buffer 15 point. Sangat efektif saat terjadi tren kuat (*runaway trend*).
+    </p>
+  </div>
+
+  <div class="card-feature">
+    <h4><span>4. Ribbon EMA 21 Trailing</span> <span class="badge badge-amber">Kurva Dinamis</span></h4>
+    <p>
+      Stop Loss merayap naik mengikuti kurva dinamis EMA 21 Magenta. Memberikan ruang bernapas yang cukup bagi pasar untuk bernafas tanpa mengorbankan tren besar.
+    </p>
+  </div>
+</div>
+
+<div class="card-feature" style="margin-top: 10px;">
+  <h4><span>5. SMC Structural Swing Trailing (Khusus Runner Pasca TP1 50%)</span> <span class="badge badge-blue">SMC Runner</span></h4>
+  <p>
+    Saat harga menyentuh TP1, robot melakukan <strong>Partial Close 50% lot</strong> untuk mengamankan uang ke saldo riil. Sisa 50% lot (*runner*) dikawal khusus menggunakan ayunan struktur Higher Low (HL) atau Lower High (LH) pasar institusional hingga tren benar-benar berakhir.
+  </p>
+</div>
+
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+<h1>💻 BAB 7: PANDUAN PEMASANGAN DI METATRADER 4 & MT5</h1>
+
+<h3>Langkah 1: Menyalin File Robot ke Folder Terminal</h3>
+<ol>
+  <li>Buka terminal MetaTrader 4 atau MetaTrader 5 Anda.</li>
+  <li>Klik menu <code>File</code> &rarr; pilih <code>Open Data Folder</code>.</li>
+  <li>Masuk ke folder:
+    <ul>
+      <li>MT4: <code>MQL4</code> &rarr; <code>Experts</code> &rarr; Tempelkan file <code>VIKAR_EA_4Pillar_SMC_EMA_Fibo_SR_MT4.ex4</code>.</li>
+      <li>MT5: <code>MQL5</code> &rarr; <code>Experts</code> &rarr; Tempelkan file <code>VIKAR_EA_4Pillar_SMC_EMA_Fibo_SR.ex5</code>.</li>
+    </ul>
+  </li>
+  <li>Kembali ke terminal, pada jendela <strong>Navigator</strong>, klik kanan folder <em>Expert Advisors</em> &rarr; klik <strong>Refresh</strong>.</li>
+</ol>
+
+<h3>Langkah 2: Menyiapkan Chart & Mengaktifkan AutoTrading</h3>
+<ol>
+  <li>Buka chart <strong>XAUUSD (Gold)</strong> pada timeframe <strong>M5</strong> atau <strong>M15</strong>.</li>
+  <li>Pastikan tombol <strong>AutoTrading</strong> (di MT4) atau <strong>Algo Trading</strong> (di MT5) pada toolbar atas sudah menyala <strong>HIJAU</strong>.</li>
+  <li>Tarik robot dari Navigator ke dalam chart.</li>
+  <li>Pada jendela pengaturan tab <em>Common</em>:
+    <ul>
+      <li>Centang <strong>Allow Live Trading / Allow Algo Trading</strong>.</li>
+      <li>Centang <strong>Allow DLL imports</strong> (jika diminta).</li>
+    </ul>
+  </li>
+  <li>Pada tab <em>Inputs</em>, seluruh parameter bawaan (*default*) sudah dioptimalkan untuk scalping emas. Klik <strong>OK</strong>.</li>
+</ol>
+
+<h3>Langkah 3: Membaca Dashboard HUD & Fitur Geser (Drag-and-Drop)</h3>
+<p>
+  Dashboard modern berwarna gelap (*dark glassmorphic*) akan muncul di sisi kiri atas chart:
+</p>
+<ul>
+  <li>Di pojok kanan atas banner dashboard terdapat tombol <code>[ :: GESER ]</code> (MT4) atau <code>[ ⠿ GESER ]</code> (MT5).</li>
+  <li><strong>Klik tombol tersebut</strong> &rarr; tombol akan berubah menjadi warna kuning <code>[ LEPAS ]</code>.</li>
+  <li>Sekarang Anda dapat <strong>mengklik di mana saja di chart</strong> untuk memindahkan posisi dashboard agar tidak menutupi grafik lilin Anda. Klik sekali lagi untuk mengunci posisi.</li>
+</ul>
+
+<!-- HALAMAN 7: BAB 8 -->
+<div class="page-break"></div>
+
+<h1>⚙️ BAB 8: TABEL LENGKAP PARAMETER INPUT & REKOMENDASI</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 28%;">Nama Parameter</th>
+      <th style="width: 14%;">Default</th>
+      <th style="width: 16%;">Rekomendasi</th>
+      <th style="width: 42%;">Penjelasan Fungsi</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th colspan="4" style="background: #334155;">1. MANAJEMEN LOT & RISIKO MODAL</th>
+    </tr>
+    <tr>
+      <td><code>InpLotType</code></td>
+      <td><code>BROKER_MIN</code></td>
+      <td><code>BROKER_MIN</code></td>
+      <td>Model lot. Mode Broker Min otomatis menggunakan lot teraman broker (0.01).</td>
+    </tr>
+    <tr>
+      <td><code>InpRiskPercent</code></td>
+      <td><code>1.0%</code></td>
+      <td><code>1.0% - 2.0%</code></td>
+      <td>Risiko per transaksi dalam persentase saldo modal jika memilih mode Risk %.</td>
+    </tr>
+    <tr>
+      <td><code>InpMaxOpenPositions</code></td>
+      <td><code>1</code></td>
+      <td><code>1</code></td>
+      <td>Maksimal posisi aktif bersamaan (1 = Anti-Hedging & Anti-Martingale).</td>
+    </tr>
+    <tr>
+      <td><code>InpSignalCooldownBars</code></td>
+      <td><code>2</code> (MT4) / <code>3</code> (MT5)</td>
+      <td><code>2 - 3</code></td>
+      <td>Jeda minimal bar lilin antar sinyal untuk mencegah order bertumpuk di satu candle.</td>
+    </tr>
+    <tr>
+      <td><code>InpMagicNumber</code></td>
+      <td><code>777104 / 777125</code></td>
+      <td>Unik</td>
+      <td>Nomor identitas unik EA agar tidak bentrok dengan transaksi manual Anda.</td>
+    </tr>
+
+    <tr>
+      <th colspan="4" style="background: #334155;">2. TARGET STOP LOSS & TAKE PROFIT</th>
+    </tr>
+    <tr>
+      <td><code>InpSLType</code></td>
+      <td><code>SWING_FIBO</code></td>
+      <td><code>SWING_FIBO</code></td>
+      <td>Metode SL: di bawah Swing Low / di atas Swing High + buffer ATR.</td>
+    </tr>
+    <tr>
+      <td><code>InpMinSLPips / InpMaxSLPips</code></td>
+      <td><code>15.0 / 28.0</code></td>
+      <td><code>15.0 / 30.0</code></td>
+      <td>Batas bawah dan batas atas jarak Stop Loss dalam pips (Gold optimal).</td>
+    </tr>
+    <tr>
+      <td><code>InpTPType</code></td>
+      <td><code>RISK_REWARD</code></td>
+      <td><code>RISK_REWARD</code></td>
+      <td>Model TP berdasarkan rasio Risk to Reward.</td>
+    </tr>
+    <tr>
+      <td><code>InpRiskRewardRatio</code></td>
+      <td><code>1.5</code></td>
+      <td><code>1.5 - 2.0</code></td>
+      <td>Target keuntungan 1 banding 1.5 s/d 1 banding 2.0.</td>
+    </tr>
+
+    <tr>
+      <th colspan="4" style="background: #334155;">3. AUTO-BREAKEVEN & TRAILING STOP</th>
+    </tr>
+    <tr>
+      <td><code>InpUseBreakeven</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Aktifkan auto-geser SL ke profit (kunci modal).</td>
+    </tr>
+    <tr>
+      <td><code>InpBreakevenTriggerPips</code></td>
+      <td><code>5.0</code></td>
+      <td><code>5.0</code></td>
+      <td>Jarak floating profit (+50 point) untuk memicu geser SL+.</td>
+    </tr>
+    <tr>
+      <td><code>InpBreakevenLockPips</code></td>
+      <td><code>2.0</code></td>
+      <td><code>2.0</code></td>
+      <td>Jumlah profit yang dikunci saat SL+ digeser (+20 point).</td>
+    </tr>
+    <tr>
+      <td><code>InpUseCandleTrailing</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Trailing stop mengikuti ekor lilin terbaru candle-by-candle.</td>
+    </tr>
+    <tr>
+      <td><code>InpUsePointsTrailing</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Trailing stop dinamis mengikuti pergerakan jarak point harga.</td>
+    </tr>
+    <tr>
+      <td><code>InpUsePartialClose</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Tutup 50% lot di TP1 dan biarkan sisa lot berjalan sebagai Runner.</td>
+    </tr>
+
+    <tr>
+      <th colspan="4" style="background: #334155;">4. PRO TRADER DISCIPLINE SUITE (v3.30)</th>
+    </tr>
+    <tr>
+      <td><code>InpUseDailyProfitLockdown</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Kunci trading hari ini jika target profit harian telah tercapai (*Done for Day*).</td>
+    </tr>
+    <tr>
+      <td><code>InpDailyProfitTargetMoney</code></td>
+      <td><code>50.0</code></td>
+      <td>Sesuai Modal</td>
+      <td>Target profit harian dalam dollar (misal $50 untuk akun $1,000-$5,000).</td>
+    </tr>
+    <tr>
+      <td><code>InpUseRolloverGuard</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Bekukan order saat tengah malam (23:50 s/d 00:25) menghindari spread liar.</td>
+    </tr>
+    <tr>
+      <td><code>InpUseMaxDailyTrades</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Batasi kuota transaksi harian (default: maksimal 5 order per hari).</td>
+    </tr>
+    <tr>
+      <td><code>InpUseMilestoneRatchet</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Kunci untung bertingkat: +0.5R saat profit 1.0R, +1.0R saat profit 1.5R.</td>
+    </tr>
+
+    <tr>
+      <th colspan="4" style="background: #334155;">5. PROTEKSI AKUN & CIRCUIT BREAKER</th>
+    </tr>
+    <tr>
+      <td><code>InpUseEquityGuardian</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Batas maksimal penurunan equity harian (Prop Firm Hard Kill-Switch).</td>
+    </tr>
+    <tr>
+      <td><code>InpMaxDailyEquityDDPct</code></td>
+      <td><code>4.0%</code></td>
+      <td><code>4.0%</code></td>
+      <td>Tutup semua order dan kunci trading jika equity turun &ge; 4.0% dalam sehari.</td>
+    </tr>
+    <tr>
+      <td><code>InpUseConsecutiveLossGuard</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Istirahat 4 jam setelah 2x true loss berurutan (*cooldown anti-tilt*).</td>
+    </tr>
+    <tr>
+      <td><code>InpUseFridayGuard</code></td>
+      <td><code>true</code></td>
+      <td><code>true</code></td>
+      <td>Tutup semua order Jumat malam pukul 21:00 server menghindari gap akhir pekan.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- HALAMAN 8: BAB 9 -->
+<div class="page-break"></div>
+
+<h1>💰 BAB 9: MANAJEMEN MODAL, ATURAN LOT & TIPS SUKSES</h1>
+
+<h2>1. Panduan Ukuran Lot Berdasarkan Modal Akun</h2>
+<p>
+  Pasar emas (XAUUSD) memiliki volatilitas harian yang sangat tinggi (rentang gerak harian 2,000 - 5,000 point). Ketahanan modal adalah kunci nomor satu seorang trader profesional. Gunakan tabel panduan lot berikut:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 22%;">Saldo Modal ($)</th>
+      <th style="width: 22%;">Ukuran Lot Aman</th>
+      <th style="width: 28%;">Target Harian (*Done for Day*)</th>
+      <th style="width: 28%;">Batas Toleransi DD Harian</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>$100 - $300</strong></td>
+      <td><code>0.01 lot</code> (Min Broker)</td>
+      <td><code>+$3.00 s/d +$5.00</code></td>
+      <td>-$4.00 s/d -$12.00 (4%)</td>
+    </tr>
+    <tr>
+      <td><strong>$500 - $1,000</strong></td>
+      <td><code>0.01 - 0.02 lot</code></td>
+      <td><code>+$15.00 s/d +$30.00</code></td>
+      <td>-$20.00 s/d -$40.00 (4%)</td>
+    </tr>
+    <tr>
+      <td><strong>$2,000 - $5,000</strong></td>
+      <td><code>0.03 - 0.05 lot</code></td>
+      <td><code>+$50.00 s/d +$100.00</code></td>
+      <td>-$80.00 s/d -$200.00 (4%)</td>
+    </tr>
+    <tr>
+      <td><strong>$10,000 (Prop Firm)</strong></td>
+      <td><code>0.10 lot</code></td>
+      <td><code>+$150.00 s/d +$200.00</code></td>
+      <td>-$400.00 (Max 4% Limit)</td>
+    </tr>
+    <tr>
+      <td><strong>$50,000 (Prop Firm)</strong></td>
+      <td><code>0.50 lot</code></td>
+      <td><code>+$500.00 s/d +$1,000.00</code></td>
+      <td>-$2,000.00 (Max 4% Limit)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2. Aturan Emas Menjalankan EA Vikar 4-Pillar Pro</h2>
+<ol>
+  <li><strong>Gunakan VPS (Virtual Private Server) yang Stabil</strong>:
+    Agar EA dapat mengawal trailing stop dan mengeksekusi Auto-Breakeven secara 24 jam nonstop tanpa terganggu pemadaman listrik atau koneksi internet rumah yang terputus.
+  </li>
+  <li><strong>Pilih Broker dengan Spread Rendah & Eksekusi Cepat</strong>:
+    Gunakan akun berjenis <em>ECN, Zero Spread, atau Pro</em> (seperti QuickPro, Exness Pro, IC Markets Raw). Robot ini sudah dibekali fungsi auto-fallback ECN (Error 130 bypass) sehingga kompatibel di seluruh broker ECN modern.
+  </li>
+  <li><strong>Patuhi Prinsip "Done for the Day"</strong>:
+    Ketika target harian Anda sudah tercapai dan dashboard menunjukkan status <code>DONE FOR THE DAY (LOCKED)</code>, <strong>jangan tergoda untuk membuka order manual</strong>. Ambil keuntungan Anda, tutup laptop, dan nikmati waktu bersama keluarga. Pasar akan selalu buka esok hari.
+  </li>
+  <li><strong>Biarkan Robot Mengelola Transaksi</strong>:
+    Hindari kebiasaan menggeser Stop Loss secara manual ke arah yang merugikan. Robot telah dibekali 5 sistem trailing stop dan otopsi pasca-loss untuk melindungi modal Anda secara matematis.
+  </li>
+</ol>
+
+<div class="callout callout-tip" style="margin-top: 20px;">
+  <strong>Pernyataan Kualitas & Integritas Kode:</strong><br>
+  Seluruh kode program EA MT4, MT5, dan Python Backtest Studio telah diaudit menggunakan sistem audit forensik <code>audit_all_bugs.py</code> dan dikompilasi dengan <strong>0 Errors dan 0 Warnings</strong> pada MetaEditor 4 dan MetaEditor 5. Semua sistem proteksi siap bekerja secara optimal untuk mengawal perjalanan trading Anda.
+</div>
+
+<div style="text-align: center; margin-top: 35px; color: #64748b; font-size: 8pt; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+  &copy; 2026 VIKAR ALGO RESEARCH & STRATEGY. SELURUH HAK CIPTA DILINDUNGI UNDANG-UNDANG.
+</div>
+
+</body>
+</html>

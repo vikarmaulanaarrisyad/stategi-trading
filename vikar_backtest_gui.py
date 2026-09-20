@@ -378,6 +378,19 @@ class VikarBacktestEngine:
         fixed_tp_points = self.params.get("fixed_tp_points", 100.0)
         use_fixed_tp = self.params.get("tp_mode", "FIXED_100") == "FIXED_100"
 
+        # Pro Trader Discipline Suite State (v3.30)
+        use_daily_profit_lockdown = self.params.get("use_daily_profit_lockdown", True)
+        daily_profit_target = self.params.get("daily_profit_target", 50.0)
+        use_max_daily_trades = self.params.get("use_max_daily_trades", True)
+        max_daily_trades = self.params.get("max_daily_trades", 5)
+        use_milestone_ratchet = self.params.get("use_milestone_ratchet", True)
+
+        current_day = None
+        daily_profit = 0.0
+        daily_trades_count = 0
+        daily_locked = False
+        daily_lockdown_days = set()
+
         # 3. Bar-by-Bar Simulation Loop
         start_idx = 130
         for i in range(start_idx, self.n):
@@ -391,6 +404,14 @@ class VikarBacktestEngine:
             cur_low = lows[i]
             cur_close = closes[i]
             cur_hour = current_dt.hour
+
+            # Reset Status Harian Disiplin (v3.30)
+            bar_date = current_dt.date()
+            if current_day != bar_date:
+                current_day = bar_date
+                daily_profit = 0.0
+                daily_trades_count = 0
+                daily_locked = False
 
             # UPDATE AUTO-CALIBRATION & REGIME TRACKING (v3.20)
             if self.params.get("use_auto_calibration", True):
@@ -532,6 +553,33 @@ class VikarBacktestEngine:
                         if candle_sl < tr["open_price"] and candle_sl < tr["sl"]:
                             tr["sl"] = candle_sl
 
+                # E. MILESTONE RATCHET TRAILING (v3.30 Pro Discipline)
+                if not closed and use_milestone_ratchet:
+                    r_dist = abs(tr["open_price"] - tr.get("initial_sl", tr["sl"]))
+                    if r_dist > 0:
+                        if is_buy:
+                            p_dist = cur_close - tr["open_price"]
+                            target_sl = 0.0
+                            if p_dist >= 2.0 * r_dist:
+                                target_sl = tr["open_price"] + (1.5 * r_dist)
+                            elif p_dist >= 1.5 * r_dist:
+                                target_sl = tr["open_price"] + (1.0 * r_dist)
+                            elif p_dist >= 1.0 * r_dist:
+                                target_sl = tr["open_price"] + (0.5 * r_dist)
+                            if target_sl > tr["sl"]:
+                                tr["sl"] = target_sl
+                        else:
+                            p_dist = tr["open_price"] - cur_close
+                            target_sl = 0.0
+                            if p_dist >= 2.0 * r_dist:
+                                target_sl = tr["open_price"] - (1.5 * r_dist)
+                            elif p_dist >= 1.5 * r_dist:
+                                target_sl = tr["open_price"] - (1.0 * r_dist)
+                            elif p_dist >= 1.0 * r_dist:
+                                target_sl = tr["open_price"] - (0.5 * r_dist)
+                            if target_sl > 0.0 and target_sl < tr["sl"]:
+                                tr["sl"] = target_sl
+
                 # EKSEKUSI PENUTUPAN ORDER
                 if closed:
                     pips_gain = (exit_price - tr["open_price"]) / self.pip_to_price if is_buy else (tr["open_price"] - exit_price) / self.pip_to_price
@@ -543,6 +591,11 @@ class VikarBacktestEngine:
                     equity = balance
                     is_win = dollar_pnl > 0.01
                     is_true_loss = dollar_pnl < -0.01
+
+                    daily_profit += dollar_pnl
+                    if use_daily_profit_lockdown and daily_profit >= daily_profit_target:
+                        daily_locked = True
+                        daily_lockdown_days.add(bar_date)
 
                     if is_win:
                         consecutive_loss_count = 0
@@ -631,6 +684,12 @@ class VikarBacktestEngine:
                         autopsy["penalty_score"] = 0.0
 
             # B. SCANNING SETUP SINYAL BARU (JIKA TIDAK ADA POSISI TERBUKA)
+            # Filter Disiplin Trader Profesional (v3.30)
+            if use_daily_profit_lockdown and (daily_locked or daily_profit >= daily_profit_target):
+                continue
+            if use_max_daily_trades and daily_trades_count >= max_daily_trades:
+                continue
+
             effective_cooldown = calib_state["cooldown"] if self.params.get("use_auto_calibration", True) else self.params.get("cooldown_bars", 2)
             if open_trade is None and (i - last_order_bar >= effective_cooldown):
                 # Filter Regim Choppy
@@ -777,6 +836,7 @@ class VikarBacktestEngine:
                             "type": "BUY",
                             "open_time": current_dt,
                             "open_price": entry_price,
+                            "initial_sl": sl_price,
                             "sl": sl_price,
                             "tp": tp_price,
                             "lot": lot,
@@ -786,6 +846,7 @@ class VikarBacktestEngine:
                             "regime": calib_state["regime"],
                             "is_be_locked": False
                         }
+                        daily_trades_count += 1
                         last_order_bar = i
 
                 # Evaluasi Sinyal SELL
@@ -834,6 +895,7 @@ class VikarBacktestEngine:
                             "type": "SELL",
                             "open_time": current_dt,
                             "open_price": entry_price,
+                            "initial_sl": sl_price,
                             "sl": sl_price,
                             "tp": tp_price,
                             "lot": lot,
@@ -843,6 +905,7 @@ class VikarBacktestEngine:
                             "regime": calib_state["regime"],
                             "is_be_locked": False
                         }
+                        daily_trades_count += 1
                         last_order_bar = i
 
             # Rekam kurva ekuitas secara periodik
@@ -919,6 +982,7 @@ class VikarBacktestEngine:
             "win_rate": round(win_rate, 1),
             "max_drawdown_dollar": round(max_dd_dollar, 2),
             "max_drawdown_pct": round(max_dd_pct, 2),
+            "daily_lockdown_days": len(daily_lockdown_days),
             "trades": trades,
             "equity_curve": equity_curve,
             "pattern_matrix": pattern_matrix,
@@ -1024,7 +1088,11 @@ class VikarBacktestStudio(ctk.CTk):
 
         self.chk_be = ctk.CTkCheckBox(sec3, text="Auto-BE / SL+ (Kunci 20 pt di 50 pt)")
         self.chk_be.select()
-        self.chk_be.pack(anchor="w", padx=10, pady=(3, 8))
+        self.chk_be.pack(anchor="w", padx=10, pady=3)
+
+        self.chk_ratchet_trail = ctk.CTkCheckBox(sec3, text="Milestone Ratchet Trailing (+0.5R/1.0R)")
+        self.chk_ratchet_trail.select()
+        self.chk_ratchet_trail.pack(anchor="w", padx=10, pady=(3, 8))
 
         # Group 4: AI Self-Healing & Neuro-Calibration (v3.20)
         sec4 = ctk.CTkFrame(self.sidebar, fg_color="#1e293b", corner_radius=8)
@@ -1050,6 +1118,33 @@ class VikarBacktestStudio(ctk.CTk):
         self.chk_pat_matrix = ctk.CTkCheckBox(sec4, text="Rapor Matriks 13 Pola (Boost & Blacklist)")
         self.chk_pat_matrix.select()
         self.chk_pat_matrix.pack(anchor="w", padx=10, pady=(3, 8))
+
+        # Group 4.5: Pro Discipline Suite (v3.30)
+        sec_disc = ctk.CTkFrame(self.sidebar, fg_color="#1e293b", corner_radius=8)
+        sec_disc.pack(fill="x", padx=10, pady=8)
+        ctk.CTkLabel(sec_disc, text="🎯 PRO TRADER DISCIPLINE (v3.30)", font=ctk.CTkFont(size=12, weight="bold"), text_color="#f8fafc").pack(anchor="w", padx=10, pady=(8, 4))
+
+        self.chk_profit_lock = ctk.CTkCheckBox(sec_disc, text="Daily Target Lockdown (Done for Day)")
+        self.chk_profit_lock.select()
+        self.chk_profit_lock.pack(anchor="w", padx=10, pady=3)
+
+        row_plock = ctk.CTkFrame(sec_disc, fg_color="transparent")
+        row_plock.pack(fill="x", padx=10, pady=2)
+        ctk.CTkLabel(row_plock, text="Target Profit/Hari ($):", font=ctk.CTkFont(size=11)).pack(side="left")
+        self.ent_profit_target = ctk.CTkEntry(row_plock, width=70, height=26)
+        self.ent_profit_target.insert(0, "50.0")
+        self.ent_profit_target.pack(side="right")
+
+        self.chk_max_trades = ctk.CTkCheckBox(sec_disc, text="Max Daily Trades Cap (Quota)")
+        self.chk_max_trades.select()
+        self.chk_max_trades.pack(anchor="w", padx=10, pady=3)
+
+        row_mtrades = ctk.CTkFrame(sec_disc, fg_color="transparent")
+        row_mtrades.pack(fill="x", padx=10, pady=(2, 8))
+        ctk.CTkLabel(row_mtrades, text="Maks Transaksi/Hari:", font=ctk.CTkFont(size=11)).pack(side="left")
+        self.ent_max_trades = ctk.CTkEntry(row_mtrades, width=70, height=26)
+        self.ent_max_trades.insert(0, "5")
+        self.ent_max_trades.pack(side="right")
 
         # Group 5: Modal & Akun
         sec5 = ctk.CTkFrame(self.sidebar, fg_color="#1e293b", corner_radius=8)
@@ -1310,6 +1405,11 @@ class VikarBacktestStudio(ctk.CTk):
                 "trail_step_points": 10.0,
                 "use_candle_trailing": bool(self.chk_candle_trail.get()),
                 "candle_trail_buf_points": 15.0,
+                "use_milestone_ratchet": bool(self.chk_ratchet_trail.get()),
+                "use_daily_profit_lockdown": bool(self.chk_profit_lock.get()),
+                "daily_profit_target": float(self.ent_profit_target.get()),
+                "use_max_daily_trades": bool(self.chk_max_trades.get()),
+                "max_daily_trades": int(self.ent_max_trades.get()),
                 "use_auto_calibration": bool(self.chk_auto_calib.get()),
                 "auto_tuning_sensitivity": 1.25,
                 "auto_tuning_score_step": 5.0,
@@ -1330,6 +1430,9 @@ class VikarBacktestStudio(ctk.CTk):
 
             engine = VikarBacktestEngine(self.loaded_data["bars"], params)
             results = engine.run(progress_callback=update_progress)
+            if "error" in results:
+                self.after(0, lambda: messagebox.showwarning("Peringatan Data", results["error"]))
+                return
             self.backtest_results = results
 
             # Perbarui tampilan UI di main thread
@@ -1341,7 +1444,10 @@ class VikarBacktestStudio(ctk.CTk):
 
     def _render_results(self, res):
         self.progress_bar.set(1.0)
-        self.lbl_status.configure(text=f"Selesai! {res['total_trades']} transaksi dieksekusi.")
+        status_msg = f"Selesai! {res['total_trades']} transaksi dieksekusi."
+        if res.get("daily_lockdown_days", 0) > 0:
+            status_msg += f" Target harian tercapai di {res['daily_lockdown_days']} hari (Done for the Day)!"
+        self.lbl_status.configure(text=status_msg)
 
         # 1. Update Kartu Metrik KPI
         p_sign = "+" if res["net_profit"] >= 0 else ""

@@ -52,6 +52,12 @@ enum ENUM_BE_MODE
    BE_MODE_RISK_REWARD    // Berdasarkan Rasio Risk-Reward (e.g. Profit 1:1 -> Geser SL ke +5 Pips)
 };
 
+enum ENUM_PROFIT_TARGET_MODE
+{
+   PROFIT_TARGET_CURRENCY,  // Target Profit Berdasarkan Nominal Uang ($ / Saldo Akun)
+   PROFIT_TARGET_PERCENT    // Target Profit Berdasarkan Persentase Saldo Modal (%)
+};
+
 //+------------------------------------------------------------------+
 //| INPUT PARAMETERS USER                                            |
 //+------------------------------------------------------------------+
@@ -289,6 +295,25 @@ input bool          InpUseTrapHunter           = true;             // Eksekusi R
 input double        InpMinSweepPips            = 4.0;              // Minimal Jarak Penembusan Palsu (Pips)
 input double        InpMaxSweepPips            = 30.0;             // Maksimal Jarak Penembusan Palsu (Pips)
 input double        InpMinRejectionWickPct     = 40.0;             // Minimal Panjang Ekor Penolakan Lilin (%)
+
+input group "=== 8.16 PRO TRADER DISCIPLINE SUITE (v3.30) ==="
+input bool          InpUseDailyProfitLockdown  = true;              // Kunci Trading Hari Ini Jika Target Profit Harian Tercapai (Done for the Day)
+input ENUM_PROFIT_TARGET_MODE InpDailyProfitTargetMode = PROFIT_TARGET_CURRENCY; // Model Target Profit Harian
+input double        InpDailyProfitTargetMoney  = 50.0;              // Target Profit Harian ($ USD)
+input double        InpDailyProfitTargetPercent= 2.0;               // Target Profit Harian (% Modal)
+input bool          InpUseRolloverGuard        = true;              // Bekukan Entry Selama Rollover Spread Melebar Tengah Malam
+input int           InpRolloverStartHour       = 23;                // Jam Mulai Rollover Server
+input int           InpRolloverStartMin        = 50;                // Menit Mulai Rollover Server (23:50)
+input int           InpRolloverEndHour         = 0;                 // Jam Selesai Rollover Server
+input int           InpRolloverEndMin          = 25;                // Menit Selesai Rollover Server (00:25)
+input bool          InpUseMaxDailyTrades       = true;              // Batasi Kuota Maksimal Transaksi per Hari (Anti-Overtrading)
+input int           InpMaxDailyTrades          = 5;                 // Kuota Maksimal Transaksi per Hari
+input bool          InpUseMilestoneRatchet     = true;              // Kunci Untung Bertingkat (+0.5R di 1.0R, +1.0R di 1.5R, +1.5R di 2.0R)
+input bool          InpTradeKillzonesOnly      = false;             // Hanya Trading di Sesi Institusional Paling Likuid (London & NY)
+input int           InpKillzoneLondonStart     = 9;                 // Jam Mulai London Killzone (Server Time)
+input int           InpKillzoneLondonEnd       = 13;                // Jam Selesai London Killzone (Server Time)
+input int           InpKillzoneNYStart         = 14;                // Jam Mulai New York Killzone (Server Time)
+input int           InpKillzoneNYEnd           = 20;                // Jam Selesai New York Killzone (Server Time)
 
 input group "=== 11. NOTIFIKASI PUSH KE SMARTPHONE (HP) ==="
 input bool          InpSendPushNotifications       = true;         // Kirim Notifikasi Instan ke HP (MetaTrader 5 Mobile)
@@ -608,6 +633,12 @@ double g_midnightBalance      = 0.0;
 bool   g_equityLockActive     = false;
 double g_currentDailyDDPct    = 0.0;
 string g_trapHunterStatusStr  = "STANDBY";
+
+// Pro Trader Discipline Suite Globals (v3.30)
+bool     g_dailyProfitLocked        = false;
+datetime g_lastProfitLockDay        = 0;
+int      g_todayTradesCount         = 0;
+datetime g_lastTradeCountDay        = 0;
 
 
 string         g_lastSignalType = "MENUNGGU SETUP";
@@ -2691,11 +2722,43 @@ void CloseAllOpenOrders()
 }
 
 //+------------------------------------------------------------------+
+//| PRO TRADER DISCIPLINE HELPERS (v3.30)                            |
+//+------------------------------------------------------------------+
+bool IsInRolloverWindowMQL5()
+{
+   if (!InpUseRolloverGuard) return false;
+   MqlDateTime dt;
+   TimeCurrent(dt);
+   int curMin = dt.hour * 60 + dt.min;
+   int startMin = InpRolloverStartHour * 60 + InpRolloverStartMin;
+   int endMin = InpRolloverEndHour * 60 + InpRolloverEndMin;
+   if (startMin > endMin)
+   {
+      if (curMin >= startMin || curMin < endMin) return true;
+   }
+   else
+   {
+      if (curMin >= startMin && curMin < endMin) return true;
+   }
+   return false;
+}
+
+bool IsInKillzoneWindowMQL5()
+{
+   if (!InpTradeKillzonesOnly) return true;
+   MqlDateTime dt;
+   TimeCurrent(dt);
+   if (dt.hour >= InpKillzoneLondonStart && dt.hour < InpKillzoneLondonEnd) return true;
+   if (dt.hour >= InpKillzoneNYStart && dt.hour < InpKillzoneNYEnd) return true;
+   return false;
+}
+
+//+------------------------------------------------------------------+
 //| EVALUASI CIRCUIT BREAKER: CONSECUTIVE LOSS COOLDOWN & DAILY LIMIT|
 //+------------------------------------------------------------------+
 bool CheckCircuitBreakers()
 {
-   if (!InpUseConsecutiveLossGuard && !InpUseDailyLossLimit && !InpUseEquityGuardian)
+   if (!InpUseConsecutiveLossGuard && !InpUseDailyLossLimit && !InpUseEquityGuardian && !InpUseDailyProfitLockdown && !InpUseMaxDailyTrades)
       return true;
 
    MqlDateTime dt;
@@ -2820,6 +2883,50 @@ bool CheckCircuitBreakers()
       else
       {
          g_dailyLossLimitHit = false;
+      }
+   }
+
+   // 2.1 Daily Profit Target Lockdown ("Done for the Day") (v3.30)
+   if (InpUseDailyProfitLockdown)
+   {
+      double curBal = AccountInfoDouble(ACCOUNT_BALANCE);
+      double targetProfit = (InpDailyProfitTargetMode == PROFIT_TARGET_CURRENCY) ? 
+                            InpDailyProfitTargetMoney : 
+                            (curBal * (InpDailyProfitTargetPercent / 100.0));
+      if (todayClosedPnL >= targetProfit)
+      {
+         g_dailyProfitLocked = true;
+         g_lastSignalType = "DONE FOR THE DAY: TARGET PROFIT TERCAPAI (+$" + DoubleToString(todayClosedPnL, 2) + " >= $" + DoubleToString(targetProfit, 2) + ")";
+         static datetime lastLockPushMT5 = 0;
+         if (InpSendPushNotifications && (TimeCurrent() - lastLockPushMT5) > 3600)
+         {
+            SendPushAlert("TARGET PROFIT HARIAN TERCAPAI! (DONE FOR THE DAY)\nProfit Hari Ini: +$" + DoubleToString(todayClosedPnL, 2) + "\nRobot mengunci trading hari ini demi mengamankan keuntungan!");
+            lastLockPushMT5 = TimeCurrent();
+         }
+         return false;
+      }
+      else
+      {
+         g_dailyProfitLocked = false;
+      }
+   }
+
+   // 2.2 Maximum Daily Trades Cap (v3.30)
+   if (InpUseMaxDailyTrades)
+   {
+      int totalEntriesToday = 0;
+      for (int d = 0; d < totalDeals; d++)
+      {
+         ulong dTicket = HistoryDealGetTicket(d);
+         if (dTicket == 0) continue;
+         if (HistoryDealGetInteger(dTicket, DEAL_ENTRY) == DEAL_ENTRY_IN && HistoryDealGetInteger(dTicket, DEAL_MAGIC) == InpMagicNumber)
+            totalEntriesToday++;
+      }
+      g_todayTradesCount = totalEntriesToday;
+      if (totalEntriesToday >= InpMaxDailyTrades)
+      {
+         g_lastSignalType = "MAX TRADES HARIAN TERCAPAI (" + IntegerToString(totalEntriesToday) + "/" + IntegerToString(InpMaxDailyTrades) + "): DISIPLIN KUOTA";
+         return false;
       }
    }
 
@@ -3205,6 +3312,20 @@ void OnTick()
    // 3. Hanya Cari Sinyal Saat Lilin Baru Selesai (Non-Repaint Bar Close Rule)
    if (!IsNewBar())
       return;
+
+   // 3.0 Rollover Spread Blackout Shield (v3.30)
+   if (IsInRolloverWindowMQL5())
+   {
+      g_lastSignalType = "ROLLOVER FREEZE: JENDELA SPREAD MELEBAR TENGAH MALAM";
+      return;
+   }
+
+   // 3.05 Institutional Killzones Sesi Filter (v3.30)
+   if (!IsInKillzoneWindowMQL5())
+   {
+      g_lastSignalType = "DILUAR KILLZONE INSTITUSIONAL (LONDON & NY ONLY)";
+      return;
+   }
 
    // 3.1 Periksa Proteksi Akun & Circuit Breaker (Consecutive Loss Cooldown & Daily Limit)
    if (!CheckCircuitBreakers())
@@ -3604,6 +3725,7 @@ void OnTick()
             {
                ulong buyTicket = trade.ResultOrder();
                ulong buyDeal = trade.ResultDeal();
+               GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)buyTicket), MathMax(ask - slPrice, 10 * _Point));
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
                SaveTradeEntrySnapshotMQL5(buyTicket, buyDeal, (isBullishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern)), 1, scoreRes.totalScore, currentAtr);
@@ -3887,6 +4009,7 @@ void OnTick()
          {
             ulong sellTicket = trade.ResultOrder();
             ulong sellDeal = trade.ResultDeal();
+            GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)sellTicket), MathMax(slPrice - bid, 10 * _Point));
             if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                g_autopsy.tradesWithExtraBuffer--;
             SaveTradeEntrySnapshotMQL5(sellTicket, sellDeal, (isBearishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern)), -1, scoreRes.totalScore, currentAtr);
@@ -4070,7 +4193,7 @@ void CheckAutoCutProfit(const MqlRates &rates[], const double &ema21[], double c
 //+------------------------------------------------------------------+
 void ManageActiveTrades()
 {
-   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseTimeBasedExit && !InpAutoLockBEBeforeNews && !InpUseCandleTrailing && !InpUsePointsTrailing)
+   if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseTimeBasedExit && !InpAutoLockBEBeforeNews && !InpUseCandleTrailing && !InpUsePointsTrailing && !InpUseMilestoneRatchet && !InpUseStructuralTrailing)
       return;
 
    MqlRates rates[];
@@ -4084,7 +4207,7 @@ void ManageActiveTrades()
       for (int g = totalGV - 1; g >= 0; g--)
       {
          string gvName = GlobalVariableName(g);
-         if (StringFind(gvName, "VIKAR_PARTIAL_") == 0)
+         if (StringFind(gvName, "VIKAR_PARTIAL_") == 0 || StringFind(gvName, "VIKAR_INIT_R_") == 0)
             GlobalVariableDel(gvName);
       }
    }
@@ -4395,6 +4518,59 @@ void ManageActiveTrades()
          }
       }
 
+      // 1.7 Milestone Ratchet Trailing (v3.30 Pro Discipline)
+      // Tiered profit locking: Locks +0.5R at 1.0R profit, +1.0R at 1.5R, +1.5R at 2.0R
+      if (InpUseMilestoneRatchet)
+      {
+         string gvRKey = "VIKAR_INIT_R_" + IntegerToString((long)ticket);
+         double rDist = 0.0;
+         if (GlobalVariableCheck(gvRKey)) rDist = GlobalVariableGet(gvRKey);
+         else
+         {
+            rDist = (posType == POSITION_TYPE_BUY) ? (open - sl) : (sl - open);
+            if (rDist <= 0.0) rDist = PipToPrice(InpFixedSLPips);
+            GlobalVariableSet(gvRKey, rDist);
+         }
+
+         if (rDist > 0.0)
+         {
+            if (posType == POSITION_TYPE_BUY)
+            {
+               double pDist = current - open;
+               double targetSL = 0.0;
+               if (pDist >= 2.0 * rDist)      targetSL = NormalizeDouble(open + (1.5 * rDist), _Digits);
+               else if (pDist >= 1.5 * rDist) targetSL = NormalizeDouble(open + (1.0 * rDist), _Digits);
+               else if (pDist >= 1.0 * rDist) targetSL = NormalizeDouble(open + (0.5 * rDist), _Digits);
+
+               if (targetSL > sl && (current - targetSL) >= minStopDist)
+               {
+                  if (trade.PositionModify(ticket, targetSL, tp))
+                  {
+                     sl = targetSL;
+                     Print("[MILESTONE RATCHET MT5] BUY #", ticket, " SL dinaikkan mengunci profit ke: ", targetSL);
+                  }
+               }
+            }
+            else if (posType == POSITION_TYPE_SELL)
+            {
+               double pDist = open - current;
+               double targetSL = 0.0;
+               if (pDist >= 2.0 * rDist)      targetSL = NormalizeDouble(open - (1.5 * rDist), _Digits);
+               else if (pDist >= 1.5 * rDist) targetSL = NormalizeDouble(open - (1.0 * rDist), _Digits);
+               else if (pDist >= 1.0 * rDist) targetSL = NormalizeDouble(open - (0.5 * rDist), _Digits);
+
+               if (targetSL > 0.0 && (sl == 0.0 || targetSL < sl) && (targetSL - current) >= minStopDist)
+               {
+                  if (trade.PositionModify(ticket, targetSL, tp))
+                  {
+                     sl = targetSL;
+                     Print("[MILESTONE RATCHET MT5] SELL #", ticket, " SL diturunkan mengunci profit ke: ", targetSL);
+                  }
+               }
+            }
+         }
+      }
+
       // 2. Logika Trailing Stop Mengikuti Ribbon EMA 21 Magenta
       if (InpUseTrailingEMA21 && ema21Ok)
       {
@@ -4681,12 +4857,12 @@ void UpdateDashboard()
    TradeStats statsDaily = CalculateHistoryStats(startOfDay);
    TradeStats statsWeekly= CalculateHistoryStats(startOfWeek);
 
-   double totalGrowthPct = (g_eaInitialBalance > 0) ? ((balance - g_eaInitialBalance) / g_eaInitialBalance * 100.0) : 0.0;
+   double totalGrowthPct = (g_eaInitialBalance > 0.0001) ? ((balance - g_eaInitialBalance) / g_eaInitialBalance * 100.0) : 0.0;
 
    int panelX = g_panelX;
    int panelY = g_panelY;
    int panelW = g_panelW;
-   int panelH = InpShowPnLStats ? 630 : 550;
+   int panelH = InpShowPnLStats ? 646 : 566;
    g_panelH = panelH;
 
    // 1. Container Utama (Dark Slate Card)
@@ -4849,7 +5025,15 @@ void UpdateDashboard()
    string pfStr = InpUseEquityGuardian ? ("DD: " + DoubleToString(g_currentDailyDDPct, 1) + "% / Max " + DoubleToString(InpMaxDailyEquityDDPct, 1) + "%") : "OFF";
    color pfClr = (g_currentDailyDDPct >= InpMaxDailyEquityDDPct * 0.75) ? C'248,113,113' : C'148,163,184';
    CreateOrUpdateText("VIKAR_HUD_PROPFIRM", panelX + 12, currY + 190, "[Prop Firm Guard]: " + pfStr + " | Trap Hunter: AKTIF", pfClr, 7, "Segoe UI Bold");
-   currY += 212;
+
+   string discStatus = "AKTIF";
+   color discClr = C'74,222,128';
+   if (g_dailyProfitLocked) { discStatus = "DONE FOR THE DAY (LOCKED)"; discClr = C'251,191,36'; }
+   else if (IsInRolloverWindowMQL5()) { discStatus = "ROLLOVER FREEZE"; discClr = C'248,113,113'; }
+   else if (InpUseMaxDailyTrades && g_todayTradesCount >= InpMaxDailyTrades) { discStatus = "MAX TRADES REACHED"; discClr = C'248,113,113'; }
+   string discStr = "Trades: " + IntegerToString(g_todayTradesCount) + (InpUseMaxDailyTrades ? ("/" + IntegerToString(InpMaxDailyTrades)) : "") + " | " + discStatus;
+   CreateOrUpdateText("VIKAR_HUD_PRODISCIPLINE", panelX + 12, currY + 203, "[Pro Discipline] : " + discStr, discClr, 7, "Segoe UI Bold");
+   currY += 228;
 
    // 6. Inset Live Execution Status
    CreateOrUpdateRect("VIKAR_HUD_STATUS_BG", panelX + 8, currY, panelW - 16, 52, C'15,23,42', C'2,132,199');
