@@ -20,10 +20,11 @@ InpDeviation=15
 ;--- 2. TARGET STOP LOSS, TAKE PROFIT & EXIT STRATEGY ---
 InpSLType=0
 InpSLBufferAtrMult=0.8
-InpMinSLPips=12.0
-InpMaxSLPips=22.0
-InpFixedSLPips=18.0
+InpMinSLPips=50.0
+InpMaxSLPips=55.0
+InpFixedSLPips=50.0
 InpTPType=0
+InpFixedTPPips=150.0
 InpRiskRewardRatio=1.3
 
 ;--- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
@@ -72,7 +73,7 @@ InpUseConfluenceScore=1
 InpMinConfluenceScore=50.0
 
 ;--- 3.2 MESIN MOMENTUM BREAKOUT & EXPANSION ---
-InpAllowMomentumBreakout=1
+InpAllowMomentumBreakout=0
 InpBreakoutAtrMult=0.9
 InpBreakoutRequireVSA=1
 InpBreakoutRequireBOS=1
@@ -233,3 +234,10 @@ InpUseTrapHunter=1
 InpMinSweepPips=4.0
 InpMaxSweepPips=30.0
 InpMinRejectionWickPct=40.0
+InpEnableProPullbackScalper=1
+InpTrendAlignment=2
+InpStrictTrendOnly=1
+InpBlockCounterTrendCHoCH=1
+InpMinPullbackConfluences=2
+InpRequireVSAExhaustion=1
+InpFastScalpTP1AtSwing=1

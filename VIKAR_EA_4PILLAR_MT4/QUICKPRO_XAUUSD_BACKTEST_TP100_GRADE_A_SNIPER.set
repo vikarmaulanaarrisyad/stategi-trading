@@ -21,12 +21,13 @@ InpDeviation=15
 ;--- 2. TARGET STOP LOSS, TAKE PROFIT & EXIT STRATEGY ---
 InpSLType=0
 InpSLBufferAtrMult=1.0
-InpMinSLPips=15.0
-InpMaxSLPips=28.0
-InpFixedSLPips=25.0
-InpTPType=3
+InpMinSLPips=50.0
+InpMaxSLPips=55.0
+InpFixedSLPips=50.0
+InpTPType=0
+InpFixedTPPips=150.0
 InpRiskRewardRatio=1.5
-InpFixedTPPoints=100.0
+InpFixedTPPoints=1500.0
 
 ;--- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
 InpUseBreakeven=1
@@ -114,7 +115,7 @@ InpWeightTrap=15.0
 ;--- 7.1 ADAPTIVE SCORING & MOMENTUM BREAKOUT EXPANSION ---
 InpAdaptiveScoreInTrend=1
 InpTrendScoreBonus=5.0
-InpAllowMomentumBreakout=1
+InpAllowMomentumBreakout=0
 InpBreakoutAtrMult=1.6
 InpBreakoutRequireBOS=1
 InpBreakoutRequireVSA=1
@@ -218,3 +219,10 @@ InpNotifyOnEntry=0
 InpNotifyOnSLPlus=0
 InpNotifyOnPartial=0
 InpNotifyOnCircuitBreaker=0
+InpEnableProPullbackScalper=1
+InpTrendAlignment=2
+InpStrictTrendOnly=1
+InpBlockCounterTrendCHoCH=1
+InpMinPullbackConfluences=2
+InpRequireVSAExhaustion=1
+InpFastScalpTP1AtSwing=1

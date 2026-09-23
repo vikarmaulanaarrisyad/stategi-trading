@@ -5,10 +5,10 @@
 //+------------------------------------------------------------------+
 #property copyright "Vikar Institutional 4-Pillar Trading Strategy"
 #property link      "https://www.tradingview.com"
-#property version   "3.20"
-#property description "Vikar EA 4-Pillar Pro - Apex Grandmaster Edition v3.20 (Autonomous Neuro-Calibration & Self-Tuning)"
-#property description "SMC Core, Smart Multi-Filter Suite & Self-Healing Matrix"
-#property description "Prop Firm Guardian, Dynamic Structural Trailing & Trap Hunter"
+#property version   "4.00"
+#property description "Vikar EA 4-Pillar Pro - MTF Price Action Edition v4.00 (M1 OB Retest Engine)"
+#property description "SMC Core, M1 Multi-Timeframe OB/Pullback Confirmation, 10-Pattern Price Action"
+#property description "Prop Firm Guardian, Dynamic Structural Trailing & M1 Zone Radar HUD"
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
@@ -40,7 +40,7 @@ enum ENUM_SL_TYPE
 
 enum ENUM_TP_TYPE
 {
-   TP_TYPE_RISK_REWARD,   // Rasio Risk-to-Reward (1 : 1.5 / 1 : 2 / 1 : 3)
+   TP_TYPE_RISK_REWARD,   // Rasio Risk-to-Reward (Default SNIPER: 1 : 1.8)
    TP_TYPE_FIBO_EXT,      // Target Ekstensi Fibonacci (-0.272 & -0.618)
    TP_TYPE_PIVOT_LEVEL,   // Target Level Pivot Statis Terdekat (R1/R2 atau S1/S2)
    TP_TYPE_FIXED_POINTS   // Target Jarak Statis (Fixed 100 Point / Sesuai Input)
@@ -58,15 +58,17 @@ enum ENUM_PROFIT_TARGET_MODE
    PROFIT_TARGET_PERCENT    // Target Profit Berdasarkan Persentase Saldo Modal (%)
 };
 
+
+
 //+------------------------------------------------------------------+
-//| INPUT PARAMETERS USER                                            |
+//| INPUT PARAMETERS USER (KOMPATIBILITAS DIDIMAX MT5 - SNIPER $20)  |
 //+------------------------------------------------------------------+
 input group "=== 1. MANAJEMEN LOT & RISIKO MODAL ==="
-input ENUM_LOT_TYPE InpLotType            = LOT_TYPE_BROKER_MIN;   // Model Lot (Default: Minimal Lot Broker - Aman)
+input ENUM_LOT_TYPE InpLotType            = LOT_TYPE_FIXED;        // Model Lot (Default: Fixed Lot 0.01 - Standar Akun $20)
 input double        InpRiskPercent        = 1.0;                   // Risiko per Transaksi (% Modal, Jika Mode Risk %)
-input double        InpFixedLot           = 0.10;                  // Ukuran Lot Tetap (Jika Mode Fixed Lot)
+input double        InpFixedLot           = 0.01;                  // Ukuran Lot Tetap (0.01 Lot Teraman Modal $20)
 input double        InpMinLot             = 0.00;                  // Batas Bawah Lot (0.0 = Auto Deteksi Minimal Broker)
-input double        InpMaxLot             = 0.10;                  // Batas Maksimal Lot (Safeguard: 0.10 Anti-Lot Besar)
+input double        InpMaxLot             = 0.05;                  // Batas Maksimal Lot (Safeguard: 0.05 Anti-Lot Besar)
 input int           InpMaxOpenPositions   = 1;                     // Maksimal Posisi Aktif Bersamaan (1 = Anti-Hedging)
 input int           InpSignalCooldownBars = 3;                     // Jeda Minimal Lilin Antar Sinyal (Cooldown Bars)
 input ulong         InpMagicNumber        = 777125;                // Magic Number Unik EA
@@ -80,32 +82,32 @@ input double        InpMinSLPips          = 20.0;                  // Batas Mini
 input double        InpMaxSLPips          = 70.0;                  // Batas Maksimal Jarak SL (Pips)
 input double        InpFixedSLPips        = 35.0;                  // Jarak SL Statis (Jika Mode Fixed Pips)
 input ENUM_TP_TYPE  InpTPType             = TP_TYPE_RISK_REWARD;   // Metode Penentuan Target Take Profit (Default: Risk-to-Reward Ratio)
-input double        InpRiskRewardRatio    = 1.5;                   // Rasio Risk to Reward (Default: 1 : 1.5 s/d 1 : 2.0)
+input double        InpRiskRewardRatio    = 1.8;                   // Rasio Risk to Reward (Default SNIPER: 1 : 1.8)
 input double        InpFixedTPPoints      = 100.0;                 // Target Jarak TP Statis (Points, misal 100 Point = 10 Pips)
 
 // --- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
 input bool          InpUseBreakeven       = true;                  // Aktifkan Auto-Breakeven / SL+ (Kunci Modal & Profit)
 input ENUM_BE_MODE  InpBreakevenMode      = BE_MODE_PIPS;          // Model Pemicu Auto-BE / SL+ (Pips / Risk-Reward)
-input double        InpBreakevenTriggerPips= 5.0;                  // Jarak Profit Memicu BE / SL+ (5.0 Pips = 50 Point)
+input double        InpBreakevenTriggerPips= 8.0;                  // Jarak Profit Memicu BE / SL+ (8.0 Pips = 80 Point)
 input double        InpBreakevenRRTrigger = 1.0;                   // Pemicu BE Saat Profit Mencapai R:R (1.0 = 1:1, Mode RR)
-input double        InpBreakevenLockPips  = 2.0;                   // Pips Keuntungan Terkunci Saat SL+ (2.0 Pips = 20 Point)
+input double        InpBreakevenLockPips  = 5.0;                   // Pips Keuntungan Terkunci Saat SL+ (5.0 Pips = 50 Point - Cover Spread & Komisi)
 input bool          InpUseTrailingEMA21   = true;                  // Trailing Stop Dinamis Mengikuti EMA 21 Magenta
-input double        InpTrailingBufferPips = 3.0;                   // Jarak Buffer Trailing dari EMA 21 (Pips)
+input double        InpTrailingBufferPips = 5.0;                   // Jarak Buffer Trailing dari EMA 21 (Pips)
 
 // --- Dynamic Trailing Stop (Kawal Kenaikan Candle & Jarak Points) ---
 input bool          InpUseCandleTrailing  = true;                  // Trailing Naik Mengikuti Low/High Lilin (Candle-by-Candle)
-input double        InpCandleTrailBufferPoints = 15.0;             // Buffer Jarak di Bawah Ekor Lilin (Points)
+input double        InpCandleTrailBufferPoints = 30.0;             // Buffer Jarak di Bawah Ekor Lilin (30 Point = 3.0 Pips Ruang Nafas)
 input bool          InpUsePointsTrailing  = true;                  // Trailing Stop Dinamis Berdasarkan Jarak Points
-input double        InpTrailingStartPoints= 40.0;                  // Pemicu Trailing Aktif (Setelah Profit 40 Point)
-input double        InpTrailingDistPoints = 30.0;                  // Jarak Pengawalan SL di Belakang Harga (Points)
-input double        InpTrailingStepPoints = 10.0;                  // Langkah Geser SL Tiap Kenaikan Harga (Points)
+input double        InpTrailingStartPoints= 120.0;                 // Pemicu Trailing Aktif (Setelah Profit 120 Point = 12 Pips)
+input double        InpTrailingDistPoints = 80.0;                  // Jarak Pengawalan SL di Belakang Harga (80 Point = 8 Pips)
+input double        InpTrailingStepPoints = 15.0;                  // Langkah Geser SL Tiap Kenaikan Harga (15 Point = 1.5 Pips)
 
 // --- Partial Take Profit / Scaling Out (TP1 50% + SL+ Runner) ---
 input bool          InpUsePartialClose    = true;                  // Aktifkan Partial Take Profit (Amankan 50% di TP1)
 input double        InpPartialClosePercent= 50.0;                  // Persentase Lot Ditutup di TP1 (Default: 50%)
 input ENUM_BE_MODE  InpPartialTriggerMode = BE_MODE_PIPS;          // Model Pemicu TP1 (Pips / Risk-Reward)
-input double        InpPartialTriggerPips = 6.0;                   // Jarak Profit Pemicu TP1 (6.0 Pips = 60 Point)
-input double        InpPartialRRTrigger   = 1.2;                   // Pemicu TP1 Saat Mencapai R:R (1.2 = 1:1.2, Mode RR)
+input double        InpPartialTriggerPips = 14.0;                  // Jarak Profit Pemicu TP1 (14.0 Pips = 140 Point)
+input double        InpPartialRRTrigger   = 1.5;                   // Pemicu TP1 Saat Mencapai R:R (1.5 = 1:1.5, Mode RR)
 input bool          InpPartialMoveSLPlus  = true;                  // Otomatis Geser Sisa Lot ke SL+ Setelah TP1 Ambil Untung
 
 input group "=== 2.6 DYNAMIC STRUCTURAL SWING TRAILING (v3.00) ==="
@@ -114,7 +116,7 @@ input double        InpStructuralTrailingAtrBuffer = 0.5;          // Buffer Jar
 
 // --- Auto Cut Profit Saat Indikasi Pembalikan Arah ---
 input bool          InpAutoCutProfit      = true;                  // Auto Cut Profit Saat Ada Indikasi Pembalikan Arah
-input double        InpMinProfitToCutPips = 5.0;                   // Batas Minimal Floating Profit (Pips) Sebelum Cut Aktif
+input double        InpMinProfitToCutPips = 3.0;                   // Batas Minimal Floating Profit (Pips) Sebelum Cut Aktif
 input bool          InpCutOnCHoCH         = true;                  // Cut Profit Jika Terdeteksi CHoCH Berlawanan (SMC)
 input bool          InpCutOnCandleReversal= true;                  // Cut Profit Jika Muncul Candlestick Rejection Berlawanan
 input bool          InpCutOnEMACross      = true;                  // Cut Profit Jika Lilin Menembus Ribbon EMA 21 Berlawanan
@@ -126,19 +128,19 @@ input double        InpMinProfitToTimeExitPips = 0.0;              // Minimal Pr
 input group "=== 3. PILAR 1: SMART MONEY CONCEPTS (SMC CORE) ==="
 input int           InpFractalPeriod      = 3;                     // Periode Deteksi Ayunan Fractal (Bars Kiri/Kanan)
 input bool          InpRequireBOSorCHoCH  = true;                  // Wajib Konfirmasi Struktur Pasar (BOS / CHoCH)
-input bool          InpRequireDiscount    = true;                  // Filter Dealing Range (BUY di Diskon, SELL di Premium)
+input bool          InpRequireDiscount    = false;                 // Filter Dealing Range (false = Fleksibel Mengikuti Momentum)
 input bool          InpUseLiquiditySweep  = true;                  // Deteksi & Prioritas Liquidity Sweep (Stop Hunt)
 input bool          InpUseFVGFilter       = true;                  // Deteksi Fair Value Gap (FVG Imbalance)
 input bool          InpUseOrderBlock      = true;                  // Aktifkan Mesin Valid Order Block (OB) Institusional
-input double        InpOBDisplacementAtrMult = 1.25;               // Multiplier Displacement ATR Lilin Pemicu OB (Min: 1.25x)
+input double        InpOBDisplacementAtrMult = 1.15;               // Multiplier Displacement ATR Lilin Pemicu OB (Min: 1.15x)
 input bool          InpRequireOBMitigation= false;                 // Wajib Lilin Sedang Menguji Zona OB (Mitigation Test)
 input int           InpOBMaxAgeBars       = 35;                    // Batas Usia Lilin Maksimal Order Block Aktif (Bars)
 input int           InpFVGLookbackBars    = 20;                    // Jendela Pemindaian Multi-Bar Fair Value Gap (FVG)
-input int           InpMinFVGPoints       = 15;                    // Batas Minimal Celah Lebar FVG (Points)
+input int           InpMinFVGPoints       = 10;                    // Batas Minimal Celah Lebar FVG (Points)
 
 input group "=== 3.1 SISTEM SKOR KONFLUENSI 4 PILAR (GRADE FILTER) ==="
 input bool          InpUseConfluenceScore = true;                  // Aktifkan Sistem Skor Konfluensi 4 Pilar (0 - 100 Poin)
-input double        InpMinConfluenceScore = 65.0;                  // Skor Minimal Eksekusi (65 = Grade A, 80 = Grade A+ Sniper)
+input double        InpMinConfluenceScore = 75.0;                  // Skor Minimal Eksekusi (75.0 = Preset SNIPER Grade A+ Modal $20)
 
 input group "=== 3.2 MESIN MOMENTUM BREAKOUT & EXPANSION ==="
 input bool          InpAllowMomentumBreakout       = true;         // Aktifkan Eksekusi Momentum Breakout (Anti-Ketinggalan Reli)
@@ -161,6 +163,15 @@ input bool            InpUseHTFFilter     = true;                  // Aktifkan F
 input ENUM_TIMEFRAMES InpHTFTimeframe     = PERIOD_H1;              // Timeframe Macro Trend (Default: H1)
 input int             InpHTFTrendEMA      = 125;                   // HTF Trend Baseline Period (Putih 125)
 input bool            InpHTFRequireRibbon = true;                  // Wajib Konfirmasi HTF Ribbon (EMA 8 > EMA 21)
+
+input group "=== 5.1 MULTI-TIMEFRAME PRICE ACTION — M1 OB RETEST ENGINE (v4.00) ==="
+input bool            InpUseMTFM1Engine     = true;   // Aktifkan Mesin Konfirmasi Price Action M1 (Pullback ke OB)
+input bool            InpRequireM1OBRetest  = true;   // WAJIB Retest ke OB Demand/Supply M1 Sebelum Entry (Mode Ketat)
+input double          InpM1PullbackWeight   = 20.0;   // Bobot Skor Konfluensi Retest M1 (Maks 20 Poin)
+input int             InpM1OBLookback       = 60;     // Lookback Bar M1 untuk Deteksi Order Block (60 = 60 menit)
+input double          InpM1OBDispAtrMult    = 0.7;    // Minimal Displacement ATR untuk OB M1 Valid (x ATR M1)
+input double          InpM1ZoneBufferPips   = 1.5;    // Buffer Sentuh Zona OB M1 untuk Konfirmasi Retest (Pips)
+input bool            InpM1RequireCHoCH     = false;  // Wajib CHoCH M1 sebagai Konfirmasi Reversal Presisi
 
 input group "=== 6. PILAR 4: FIBONACCI RETRACEMENT & GOLDEN POCKET ==="
 input bool          InpUseAutoFibo        = true;                  // Aktifkan Validasi Fibonacci Retracement
@@ -196,7 +207,7 @@ input bool          InpUseShockGuard      = true;                  // Proteksi L
 input double        InpShockAtrMult       = 2.2;                   // Batas Abnormal Lonjakan Lilin Berita (x Nilai ATR)
 input int           InpShockCooldownBars  = 2;                     // Jeda Pengaman Lilin Pasca-Lonjakan Shock (Bars)
 input bool          InpCutOnEarlyInvalidation = true;              // Cut Dini Jika Terbentuk Lilin Menelan Order Block Acuan
-input double        InpMaxSpreadPips      = 10.0;                  // Batas Maksimal Spread Diizinkan (Pips - Aman Malam Hari)
+input double        InpMaxSpreadPips      = 6.0;                   // Batas Maksimal Spread Diizinkan (Pips - Aman Rollover)
 input bool          InpUseSessionFilter   = false;                 // Batasi Jam Trading (false = 24 Jam Auto Trade)
 input int           InpSessionStartHour   = 0;                     // Jam Mulai Trading
 input int           InpSessionEndHour     = 24;                    // Jam Selesai Trading
@@ -225,17 +236,22 @@ input int           InpQuarantinePatternBars       = 15;           // Durasi Kar
 input double        InpAdaptiveSLBufferBoost       = 0.3;          // Tambahan Buffer ATR Pasca-Loss (x ATR)
 input int           InpAdaptiveBufferTrades        = 3;            // Jumlah Transaksi dengan Buffer Ekstra Pasca-SL
 input bool          InpAutopsyNotifyPush           = true;         // Kirim Laporan Otopsi Pasca-Loss ke Smartphone
-input group "=== 8.5 DYNAMIC PATTERN PERFORMANCE MATRIX (AI LEARNING v2.50) ==="
-input bool          InpUsePatternMatrix        = true;         // Aktifkan Memori Rapor & Bobot Kinerja Pola
+input group "=== 8.5 REINFORCEMENT LEARNING & AI CANDLESTICK SHIELD (v3.40) ==="
+input bool          InpUsePatternMatrix        = true;         // Aktifkan Memori Rapor & Pembelajaran Pola Mandiri
+input bool          InpUsePreTrainedBrain      = true;         // Bekali Otak Awal dari Hasil Audit 9 Bulan (Pre-Trained)
+input bool          InpFilterDojiCandles       = true;         // AI Shield: Tolak Entry Saat Candle Doji / Body Tipis (<22%)
+input bool          InpFilterExhaustionWicks   = true;         // AI Shield: Tolak Entry Saat Muncul Ekor Penolakan Lawan (>=45%)
+input bool          InpFilterOverextended      = true;         // AI Shield: Tolak Engulfing Terlalu Jauh dari EMA (>1.5x ATR)
+input bool          InpSaveBrainToDisk         = true;         // Simpan Memori Pembelajaran Permanen ke File Disk (Auto-Save)
 input int           InpMinTradesForPatternEval = 3;            // Minimal Transaksi Sebelum Evaluasi Pola
-input double        InpPatternBlacklistWinrate = 40.0;         // Ambang Batas Blacklist Pola (Winrate < 40%)
-input double        InpPatternBoostWinrate     = 70.0;         // Ambang Batas Boost Pola (Winrate > 70%)
+input double        InpPatternBlacklistWinrate = 40.0;         // Ambang Batas Blacklist Mandiri (Winrate < 40%)
+input double        InpPatternBoostWinrate     = 70.0;         // Ambang Batas Boost Mandiri (Winrate > 70%)
 input double        InpPatternBoostScore       = 10.0;         // Bonus Skor Konfluensi untuk Pola Akurat
 input double        InpPatternPenaltyScore     = 15.0;         // Penalti Pengetatan Skor untuk Pola Lemah
-input bool          InpUseDirectionalLearning      = true;         // Proteksi Anti-Loss Berulang Searah (Directional Bias Learning)
-input double        InpDirectionalPenaltyScore     = 10.0;         // Penalti Skor Tambahan untuk Arah yang Baru Saja Gagal
-input int           InpDirectionalPenaltyBars      = 12;           // Durasi Penalti Arah Gagal (Bars Lilin)
-input bool          InpUseHourlyLearning           = true;         // Hindari Jam Rawan Loss Berulang Hari Ini (Hourly Learning)
+input bool          InpUseDirectionalLearning  = true;         // Proteksi Anti-Loss Berulang Searah (Directional Bias Learning)
+input double        InpDirectionalPenaltyScore = 10.0;         // Penalti Skor Tambahan untuk Arah yang Baru Saja Gagal
+input int           InpDirectionalPenaltyBars  = 12;           // Durasi Penalti Arah Gagal (Bars Lilin)
+input bool          InpUseHourlyLearning       = true;         // Hindari Jam Rawan Loss Berulang Hari Ini (Hourly Learning)
 
 input group "=== 8.6 MARKET REGIME CLASSIFIER (CHOPPINESS INDEX v2.50) ==="
 input bool          InpUseRegimeFilter         = true;         // Aktifkan Sensor Cuaca Pasar (Trending vs Choppy)
@@ -297,7 +313,7 @@ input double        InpMaxSweepPips            = 30.0;             // Maksimal J
 input double        InpMinRejectionWickPct     = 40.0;             // Minimal Panjang Ekor Penolakan Lilin (%)
 
 input group "=== 8.16 PRO TRADER DISCIPLINE SUITE (v3.30) ==="
-input bool          InpUseDailyProfitLockdown  = true;              // Kunci Trading Hari Ini Jika Target Profit Harian Tercapai (Done for the Day)
+input bool          InpUseDailyProfitLockdown  = false;             // Kunci Trading Hari Ini Jika Target Profit Harian Tercapai (false = Bebas Sesuai Backtest)
 input ENUM_PROFIT_TARGET_MODE InpDailyProfitTargetMode = PROFIT_TARGET_CURRENCY; // Model Target Profit Harian
 input double        InpDailyProfitTargetMoney  = 50.0;              // Target Profit Harian ($ USD)
 input double        InpDailyProfitTargetPercent= 2.0;               // Target Profit Harian (% Modal)
@@ -306,9 +322,9 @@ input int           InpRolloverStartHour       = 23;                // Jam Mulai
 input int           InpRolloverStartMin        = 50;                // Menit Mulai Rollover Server (23:50)
 input int           InpRolloverEndHour         = 0;                 // Jam Selesai Rollover Server
 input int           InpRolloverEndMin          = 25;                // Menit Selesai Rollover Server (00:25)
-input bool          InpUseMaxDailyTrades       = true;              // Batasi Kuota Maksimal Transaksi per Hari (Anti-Overtrading)
-input int           InpMaxDailyTrades          = 5;                 // Kuota Maksimal Transaksi per Hari
-input bool          InpUseMilestoneRatchet     = true;              // Kunci Untung Bertingkat (+0.5R di 1.0R, +1.0R di 1.5R, +1.5R di 2.0R)
+input bool          InpUseMaxDailyTrades       = false;             // Batasi Kuota Maksimal Transaksi per Hari (false = Tanpa Batas, Sesuai Backtest)
+input int           InpMaxDailyTrades          = 25;                // Kuota Maksimal Transaksi per Hari (Jika Diaktifkan)
+input bool          InpUseMilestoneRatchet     = false;             // Kunci Untung Bertingkat (false = Gunakan Trailing SMC Dinamis Sesuai Backtest)
 input bool          InpTradeKillzonesOnly      = false;             // Hanya Trading di Sesi Institusional Paling Likuid (London & NY)
 input int           InpKillzoneLondonStart     = 9;                 // Jam Mulai London Killzone (Server Time)
 input int           InpKillzoneLondonEnd       = 13;                // Jam Selesai London Killzone (Server Time)
@@ -331,7 +347,8 @@ input color         InpColorFVG           = C'217,119,6';          // Warna Kota
 input group "=== 10. STATISTIK PERFORMA & TAMPILAN DASHBOARD ==="
 input bool          InpShowDashboard      = true;                  // Tampilkan Dashboard Monitor 4 Pilar
 input int           InpDashboardX         = 15;                    // Posisi Awal Dashboard X (Pixel dari Kiri)
-input int           InpDashboardY         = 20;                    // Posisi Awal Dashboard Y (Pixel dari Atas)
+input int           InpDashboardY         = 20;
+input int           InpDashboardWidth     = 480;                   // Lebar Panel Dashboard (Pixel)                    // Posisi Awal Dashboard Y (Pixel dari Atas)
 input bool          InpShowPnLStats       = true;                  // Tampilkan Rekap PnL (Sejak Start, Harian, Mingguan)
 input bool          InpResetStatsOnStart  = false;                 // Reset Statistik Awal Saat EA Dipasang Ulang
 
@@ -473,6 +490,52 @@ struct SMCSwing
    bool     isSwept;
 };
 
+// ===================================================================
+// STRUCT MULTI-TIMEFRAME PRICE ACTION ENGINE (v4.00)
+// ===================================================================
+struct MTFZone
+{
+   bool     isValid;
+   bool     isBullish;     // true = OB Demand (Buy), false = OB Supply (Sell)
+   double   top;
+   double   bottom;
+   double   mid;
+   string   zoneType;      // "OB_DEMAND", "OB_SUPPLY"
+   ENUM_TIMEFRAMES tf;
+   datetime detectedAt;
+   bool     isTested;      // Harga pernah menyentuh zona
+   bool     isMitigated;   // Zona sudah ditembus sepenuhnya
+   double   dispAtrMult;   // Kekuatan displacement pembentuk OB (x ATR)
+};
+
+struct MTFAnalysisResult
+{
+   // M1 Order Block Detection
+   MTFZone  m1DemandOB;       // OB Demand (Bullish) M1 terdekat di bawah harga
+   MTFZone  m1SupplyOB;       // OB Supply (Bearish) M1 terdekat di atas harga
+   
+   // M1 Pullback / Retest Status
+   bool     m1PullbackValid;  // true = harga sedang retest ke OB M1 yang valid
+   bool     m1PullbackIsBuy;  // true = retest ke OB Demand (siap Buy), false = ke OB Supply (siap Sell)
+   string   m1PullbackType;   // Deskripsi: "OB_DEMAND_RETEST" / "OB_SUPPLY_RETEST"
+   double   m1PullbackScore;  // Skor retest (0 - 20)
+   
+   // M1 Structure
+   bool     m1CHoCHBull;      // CHoCH Bullish terdeteksi di M1
+   bool     m1CHoCHBear;      // CHoCH Bearish terdeteksi di M1
+   bool     m1BOSBull;        // BOS Bullish (Higher High) di M1
+   bool     m1BOSBear;        // BOS Bearish (Lower Low) di M1
+   
+   // M1 ATR
+   double   m1Atr;
+   
+   // HUD Display
+   string   m1StatusStr;      // Teks status untuk HUD
+   string   m1DemandStr;      // Range OB Demand untuk HUD
+   string   m1SupplyStr;      // Range OB Supply untuk HUD
+   datetime lastUpdated;
+};
+
 struct DailyPivot
 {
    double P;
@@ -513,6 +576,7 @@ struct TradeStats
 //+------------------------------------------------------------------+
 CTrade         trade;
 CPositionInfo  posInfo;
+COrderInfo     orderInfo;
 
 int            h_ema8       = INVALID_HANDLE;
 int            h_ema21      = INVALID_HANDLE;
@@ -523,6 +587,12 @@ int            h_htf_ema125 = INVALID_HANDLE;
 int            h_htf_ema8   = INVALID_HANDLE;
 int            h_htf_ema21  = INVALID_HANDLE;
 string         g_htfMacroStr = "H1 MACRO READY";
+
+// === M1 MTF ENGINE HANDLES & GLOBALS (v4.00) ===
+int            h_m1_ema21   = INVALID_HANDLE;  // EMA 21 di M1 untuk trailing M1
+int            h_m1_atr14   = INVALID_HANDLE;  // ATR 14 di M1 untuk filter displacement OB
+datetime       g_lastM1BarTime = 0;            // Timestamp bar M1 terakhir (throttle update)
+MTFAnalysisResult g_mtfResult;                 // Hasil analisis M1 terbaru (cached per M1 bar)
 
 datetime       lastBarTime      = 0;
 datetime       lastOrderBarTime = 0;
@@ -535,11 +605,14 @@ string         g_gvStartBalKey    = "";
 // Koordinat & State Drag & Drop Dashboard
 int            g_panelX           = 15;
 int            g_panelY           = 20;
-int            g_panelW           = 355;
+int            g_panelW           = 460;
 int            g_panelH           = 400;
 bool           g_isDragging       = false;
 int            g_dragOffsetX      = 0;
 int            g_dragOffsetY      = 0;
+bool           g_hudMinimized     = false;
+
+bool           g_eaManualPause    = false;
 
 SMCSwing             lastSwingHigh;
 SMCSwing             prevSwingHigh;
@@ -1609,6 +1682,34 @@ ConfluenceScoreResult CalculateConfluenceScore(bool isBuy, const MqlRates &rates
    else
       r.grade = "GRADE B REJECT";
 
+   // ================================================================
+   // 11. BONUS M1 MULTI-TIMEFRAME PULLBACK / OB RETEST (v4.00)
+   // Maks +20 poin tambahan jika harga sedang retest ke OB M1 valid
+   // ================================================================
+   if (InpUseMTFM1Engine && g_mtfResult.m1PullbackValid)
+   {
+      bool dirMatch = (isBuy && g_mtfResult.m1PullbackIsBuy) ||
+                      (!isBuy && !g_mtfResult.m1PullbackIsBuy);
+      if (dirMatch)
+      {
+         double m1Bonus = g_mtfResult.m1PullbackScore; // sudah dihitung di DetectM1Engine()
+         r.totalScore += m1Bonus;
+         r.details += StringFormat(" | M1-OB:%+.1fpts", m1Bonus);
+         Print("[M1-MTF] Bonus M1 OB Retest: +", DoubleToString(m1Bonus, 1),
+               " pts | Tipe: ", g_mtfResult.m1PullbackType);
+      }
+   }
+
+   r.totalScore = MathMin(100.0, MathMax(0.0, r.totalScore));
+
+   // Recalculate grade setelah bonus M1
+   if (r.totalScore >= 80.0)
+      r.grade = "GRADE A+ SNIPER";
+   else if (r.totalScore >= 65.0)
+      r.grade = "GRADE A HIGH PROB";
+   else
+      r.grade = "GRADE B REJECT";
+
    r.isPassed = (!InpUseConfluenceScore || r.totalScore >= InpMinConfluenceScore);
    return r;
 }
@@ -2289,6 +2390,76 @@ void LoadAutopsyStateMQL5()
    }
 }
 
+void SaveAIBrainToDiskMQL5()
+{
+   if (!InpSaveBrainToDisk) return;
+   string fileName = "vikar_ai_brain_" + IntegerToString(InpMagicNumber) + ".csv";
+   int handle = FileOpen(fileName, FILE_WRITE|FILE_CSV|FILE_ANSI, ';');
+   if (handle != INVALID_HANDLE)
+   {
+      FileWrite(handle, "PatternId", "Name", "Wins", "Losses", "Total", "WinRate", "IsBlacklisted", "ScoreModifier");
+      for (int i = 0; i < TOTAL_TRACKED_PATTERNS; i++)
+      {
+         FileWrite(handle,
+            IntegerToString(g_patternMatrix[i].patternId),
+            g_patternMatrix[i].name,
+            IntegerToString(g_patternMatrix[i].wins),
+            IntegerToString(g_patternMatrix[i].losses),
+            IntegerToString(g_patternMatrix[i].total),
+            DoubleToString(g_patternMatrix[i].winRate, 2),
+            IntegerToString(g_patternMatrix[i].isBlacklisted ? 1 : 0),
+            DoubleToString(g_patternMatrix[i].scoreModifier, 1)
+         );
+      }
+      FileClose(handle);
+   }
+}
+
+bool LoadAIBrainFromDiskMQL5()
+{
+   if (!InpSaveBrainToDisk) return false;
+   string fileName = "vikar_ai_brain_" + IntegerToString(InpMagicNumber) + ".csv";
+   if (!FileIsExist(fileName)) return false;
+
+   int handle = FileOpen(fileName, FILE_READ|FILE_CSV|FILE_ANSI, ';');
+   if (handle == INVALID_HANDLE) return false;
+
+   // Skip baris header
+   if (!FileIsEnding(handle))
+   {
+      while (!FileIsLineEnding(handle) && !FileIsEnding(handle)) FileReadString(handle);
+   }
+
+   int loaded = 0;
+   while (!FileIsEnding(handle) && loaded < TOTAL_TRACKED_PATTERNS)
+   {
+      string sId = FileReadString(handle);
+      if (sId == "") break;
+      int patId       = (int)StringToInteger(sId);
+      string name     = FileReadString(handle);
+      int wins        = (int)StringToInteger(FileReadString(handle));
+      int losses      = (int)StringToInteger(FileReadString(handle));
+      int total       = (int)StringToInteger(FileReadString(handle));
+      double wr       = StringToDouble(FileReadString(handle));
+      bool isBlk      = (StringToInteger(FileReadString(handle)) == 1);
+      double scoreMod = StringToDouble(FileReadString(handle));
+
+      if (patId >= 0 && patId < TOTAL_TRACKED_PATTERNS)
+      {
+         g_patternMatrix[patId].wins          = wins;
+         g_patternMatrix[patId].losses        = losses;
+         g_patternMatrix[patId].total         = total;
+         g_patternMatrix[patId].winRate       = wr;
+         g_patternMatrix[patId].isBlacklisted = isBlk;
+         g_patternMatrix[patId].scoreModifier = scoreMod;
+         loaded++;
+      }
+   }
+   FileClose(handle);
+   Print("[AI BRAIN DISK MT5] Berhasil memuat ingatan permanen dari disk: ", fileName, " (", loaded, " pola).");
+   return (loaded > 0);
+}
+
 void InitPatternMatrixMQL5()
 {
    string patNames[TOTAL_TRACKED_PATTERNS] = {
@@ -2307,20 +2478,33 @@ void InitPatternMatrixMQL5()
       "Liquidity Sweep Trap Hunter"
    };
 
+   for (int i = 0; i < TOTAL_TRACKED_PATTERNS; i++)
+   {
+      g_patternMatrix[i].patternId = i;
+      g_patternMatrix[i].name      = patNames[i];
+   }
+
+   // 1. Coba muat ingatan dari disk file
+   bool loadedFromDisk = LoadAIBrainFromDiskMQL5();
+
    int blacklistedCount = 0;
    double highestWR = -1.0;
    string bestName = "BELUM ADA DATA";
 
    for (int i = 0; i < TOTAL_TRACKED_PATTERNS; i++)
    {
-      g_patternMatrix[i].patternId = i;
-      g_patternMatrix[i].name      = patNames[i];
-
       string gvWKey = "VIKAR_MT5_PMR_W_" + IntegerToString(InpMagicNumber) + "_" + IntegerToString(i);
       string gvLKey = "VIKAR_MT5_PMR_L_" + IntegerToString(InpMagicNumber) + "_" + IntegerToString(i);
 
       int wins   = GlobalVariableCheck(gvWKey) ? (int)GlobalVariableGet(gvWKey) : 0;
       int losses = GlobalVariableCheck(gvLKey) ? (int)GlobalVariableGet(gvLKey) : 0;
+
+      if (loadedFromDisk)
+      {
+         wins   = MathMax(wins, g_patternMatrix[i].wins);
+         losses = MathMax(losses, g_patternMatrix[i].losses);
+      }
+
       int total  = wins + losses;
       double wr  = (total > 0) ? ((double)wins * 100.0 / (double)total) : 0.0;
 
@@ -2331,13 +2515,51 @@ void InitPatternMatrixMQL5()
       g_patternMatrix[i].isBlacklisted = false;
       g_patternMatrix[i].scoreModifier = 0.0;
 
-      if (InpUsePatternMatrix && total >= InpMinTradesForPatternEval)
+      // 2. Pre-Trained Institutional Knowledge (Pengalaman Audit 50,123 Bar M5 2026)
+      // Jika akun baru dipasang (total == 0), tanamkan memori proteksi awal:
+      if (InpUsePreTrainedBrain && total == 0)
+      {
+         // A. Pola Toxic Terbukti Sering Rugi -> Blacklist Sejak Awal
+         if (i == 9) // Dragonfly / Gravestone / Doji
+         {
+            g_patternMatrix[i].isBlacklisted = true;
+            g_patternMatrix[i].scoreModifier = -InpPatternPenaltyScore;
+            g_patternMatrix[i].losses = 5;
+            g_patternMatrix[i].total = 5;
+            g_patternMatrix[i].winRate = 0.0;
+         }
+         else if (i == 7) // Harami Inside Bar
+         {
+            g_patternMatrix[i].isBlacklisted = true;
+            g_patternMatrix[i].scoreModifier = -InpPatternPenaltyScore;
+            g_patternMatrix[i].losses = 4;
+            g_patternMatrix[i].total = 5;
+            g_patternMatrix[i].winRate = 20.0;
+         }
+         else if (i == 10) // Inverted Hammer / Star
+         {
+            g_patternMatrix[i].isBlacklisted = true;
+            g_patternMatrix[i].scoreModifier = -InpPatternPenaltyScore;
+            g_patternMatrix[i].losses = 4;
+            g_patternMatrix[i].total = 6;
+            g_patternMatrix[i].winRate = 33.3;
+         }
+         // B. Pola Juara Terbukti Akurat -> Boost Sejak Awal
+         else if (i == 1 || i == 6 || i == 11 || i == 12)
+         {
+            g_patternMatrix[i].isBlacklisted = false;
+            g_patternMatrix[i].scoreModifier = InpPatternBoostScore;
+            g_patternMatrix[i].wins = 7;
+            g_patternMatrix[i].total = 10;
+            g_patternMatrix[i].winRate = 70.0;
+         }
+      }
+      else if (InpUsePatternMatrix && total >= InpMinTradesForPatternEval)
       {
          if (wr < InpPatternBlacklistWinrate)
          {
             g_patternMatrix[i].isBlacklisted = true;
             g_patternMatrix[i].scoreModifier = -InpPatternPenaltyScore;
-            blacklistedCount++;
          }
          else if (wr >= InpPatternBoostWinrate)
          {
@@ -2346,14 +2568,18 @@ void InitPatternMatrixMQL5()
          }
       }
 
-      if (total >= 2 && wr > highestWR)
+      if (g_patternMatrix[i].isBlacklisted)
+         blacklistedCount++;
+
+      if (g_patternMatrix[i].total >= 2 && g_patternMatrix[i].winRate > highestWR)
       {
-         highestWR = wr;
-         bestName  = patNames[i] + " (" + DoubleToString(wr, 0) + "%)";
+         highestWR = g_patternMatrix[i].winRate;
+         bestName  = patNames[i] + " (" + DoubleToString(highestWR, 0) + "%)";
       }
    }
 
    g_bestPatternStr = bestName;
+   SaveAIBrainToDiskMQL5();
    Print("[AI PATTERN MATRIX MT5] Diinisialisasi. Pola Aktif: ", TOTAL_TRACKED_PATTERNS, " | Ter-blacklist: ", blacklistedCount, " | Terbaik: ", g_bestPatternStr);
 }
 
@@ -2385,7 +2611,7 @@ void UpdatePatternRecordMQL5(int patternId, bool isWin)
       {
          g_patternMatrix[patternId].isBlacklisted = true;
          g_patternMatrix[patternId].scoreModifier = -InpPatternPenaltyScore;
-         Print("[AI MATRIX WARNING MT5] Pola '", g_patternMatrix[patternId].name, "' di-BLACKLIST sementara (Winrate: ", DoubleToString(g_patternMatrix[patternId].winRate, 1), "% < ", InpPatternBlacklistWinrate, "%).");
+         Print("[AI MATRIX WARNING MT5] Pola '", g_patternMatrix[patternId].name, "' di-BLACKLIST mandiri (Winrate: ", DoubleToString(g_patternMatrix[patternId].winRate, 1), "% < ", InpPatternBlacklistWinrate, "%).");
       }
       else if (g_patternMatrix[patternId].winRate >= InpPatternBoostWinrate)
       {
@@ -2395,6 +2621,10 @@ void UpdatePatternRecordMQL5(int patternId, bool isWin)
       }
       else
       {
+         if (g_patternMatrix[patternId].isBlacklisted)
+         {
+            Print("[AI MATRIX REHABILITASI MT5] Pola '", g_patternMatrix[patternId].name, "' dipulihkan dari blacklist (Winrate membaik: ", DoubleToString(g_patternMatrix[patternId].winRate, 1), "%).");
+         }
          g_patternMatrix[patternId].isBlacklisted = false;
          g_patternMatrix[patternId].scoreModifier = 0.0;
       }
@@ -2411,6 +2641,7 @@ void UpdatePatternRecordMQL5(int patternId, bool isWin)
       }
    }
    g_bestPatternStr = bestName;
+   SaveAIBrainToDiskMQL5();
 }
 
 void PerformLossAutopsyMQL5(ulong ticket, ulong posId, datetime closeTime, double lossAmount)
@@ -2577,10 +2808,283 @@ void ResetSelfHealingStateMQL5(string triggerReason)
 }
 
 //+------------------------------------------------------------------+
+//| M1 MULTI-TIMEFRAME ENGINE: DETEKSI OB DEMAND/SUPPLY & RETEST     |
+//| Dijalankan setiap bar M1 baru. Hasilnya disimpan di g_mtfResult. |
+//+------------------------------------------------------------------+
+void DetectM1Engine()
+{
+   if (!InpUseMTFM1Engine) return;
+   if (h_m1_atr14 == INVALID_HANDLE || h_m1_ema21 == INVALID_HANDLE) return;
+
+   // Throttle: hanya update saat bar M1 baru terbentuk
+   datetime currentM1BarTime = iTime(_Symbol, PERIOD_M1, 0);
+   if (currentM1BarTime == g_lastM1BarTime && g_mtfResult.lastUpdated > 0) return;
+   g_lastM1BarTime = currentM1BarTime;
+
+   // Reset hasil sebelumnya
+   ZeroMemory(g_mtfResult);
+
+   // Ambil data M1
+   int lookback = InpM1OBLookback + 5;
+   MqlRates m1rates[];
+   ArraySetAsSeries(m1rates, true);
+   int copied = CopyRates(_Symbol, PERIOD_M1, 0, lookback, m1rates);
+   if (copied < 5) { g_mtfResult.m1StatusStr = "DATA M1 KURANG"; return; }
+
+   // Ambil ATR M1
+   double m1AtrBuf[];
+   ArraySetAsSeries(m1AtrBuf, true);
+   double m1Atr = 0.0;
+   if (CopyBuffer(h_m1_atr14, 0, 1, 3, m1AtrBuf) >= 1)
+      m1Atr = m1AtrBuf[0];
+   if (m1Atr <= 0.0) m1Atr = PipToPrice(5.0); // fallback 5 pips
+   g_mtfResult.m1Atr = m1Atr;
+
+   double dispThresh = InpM1OBDispAtrMult * m1Atr; // Minimal displacement untuk OB valid
+   double bufferPrice = PipToPrice(InpM1ZoneBufferPips);
+
+   double currentBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double currentAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+   // ---------------------------------------------------------------
+   // SCAN ORDER BLOCK M1 (dari bar[1] ke belakang, skip bar[0] live)
+   // Logika:
+   //   - OB Bullish (DEMAND): Bar bearish besar (displacement Down) yang
+   //     diikuti oleh impulse bullish naik → base candle = OB Demand
+   //   - OB Bearish (SUPPLY): Bar bullish besar (displacement Up) yang
+   //     diikuti oleh impulse bearish turun → base candle = OB Supply
+   // ---------------------------------------------------------------
+   MTFZone bestDemand; ZeroMemory(bestDemand);
+   MTFZone bestSupply; ZeroMemory(bestSupply);
+
+   int scanLimit = MathMin(InpM1OBLookback, copied - 3);
+
+   for (int i = 1; i < scanLimit; i++)
+   {
+      double barRange = m1rates[i].high - m1rates[i].low;
+
+      // ---- Deteksi OB Bullish (Demand): cari base candle bearish ----
+      // Ciri: lilin i bearish, lalu diikuti impulse bullish (close[i-1] > high[i])
+      if (m1rates[i].close < m1rates[i].open)  // base candle bearish
+      {
+         // Cek apakah ada displacement bullish setelahnya (bar[i-2] atau lebih awal)
+         bool impulsiveBull = false;
+         for (int j = 1; j <= MathMin(3, i - 1); j++)
+         {
+            double impRange = m1rates[i - j].close - m1rates[i - j].open;
+            if (impRange >= dispThresh && m1rates[i - j].close > m1rates[i].high)
+            {
+               impulsiveBull = true;
+               break;
+            }
+         }
+
+         if (impulsiveBull)
+         {
+            // Zona OB Demand = [low, high] dari base candle bearish
+            double obTop    = m1rates[i].high;
+            double obBottom = m1rates[i].low;
+            double obMid    = (obTop + obBottom) / 2.0;
+
+            // OB valid jika belum dimitigation (price saat ini masih di atas obBottom)
+            bool notMitigated = (currentBid > obBottom);
+            // Pilih OB Demand yang terdekat di bawah harga saat ini
+            bool belowPrice = (obTop < currentBid + bufferPrice * 5);
+
+            if (notMitigated && belowPrice)
+            {
+               if (!bestDemand.isValid || obTop > bestDemand.top)
+               {
+                  bestDemand.isValid    = true;
+                  bestDemand.isBullish  = true;
+                  bestDemand.top        = obTop;
+                  bestDemand.bottom     = obBottom;
+                  bestDemand.mid        = obMid;
+                  bestDemand.zoneType   = "OB_DEMAND";
+                  bestDemand.tf         = PERIOD_M1;
+                  bestDemand.detectedAt = m1rates[i].time;
+                  bestDemand.dispAtrMult = barRange / (m1Atr > 0 ? m1Atr : 1.0);
+                  bestDemand.isMitigated = false;
+               }
+            }
+         }
+      }
+
+      // ---- Deteksi OB Bearish (Supply): cari base candle bullish ----
+      // Ciri: lilin i bullish, lalu diikuti impulse bearish (close[i-1] < low[i])
+      if (m1rates[i].close > m1rates[i].open)  // base candle bullish
+      {
+         bool impulsiveBear = false;
+         for (int j = 1; j <= MathMin(3, i - 1); j++)
+         {
+            double impRange = m1rates[i - j].open - m1rates[i - j].close;
+            if (impRange >= dispThresh && m1rates[i - j].close < m1rates[i].low)
+            {
+               impulsiveBear = true;
+               break;
+            }
+         }
+
+         if (impulsiveBear)
+         {
+            double obTop    = m1rates[i].high;
+            double obBottom = m1rates[i].low;
+            double obMid    = (obTop + obBottom) / 2.0;
+
+            bool notMitigated = (currentAsk < obTop);
+            bool abovePrice   = (obBottom > currentAsk - bufferPrice * 5);
+
+            if (notMitigated && abovePrice)
+            {
+               if (!bestSupply.isValid || obBottom < bestSupply.bottom)
+               {
+                  bestSupply.isValid    = true;
+                  bestSupply.isBullish  = false;
+                  bestSupply.top        = obTop;
+                  bestSupply.bottom     = obBottom;
+                  bestSupply.mid        = obMid;
+                  bestSupply.zoneType   = "OB_SUPPLY";
+                  bestSupply.tf         = PERIOD_M1;
+                  bestSupply.detectedAt = m1rates[i].time;
+                  bestSupply.dispAtrMult = barRange / (m1Atr > 0 ? m1Atr : 1.0);
+                  bestSupply.isMitigated = false;
+               }
+            }
+         }
+      }
+   } // end scan loop
+
+   g_mtfResult.m1DemandOB = bestDemand;
+   g_mtfResult.m1SupplyOB = bestSupply;
+
+   // ---------------------------------------------------------------
+   // CEK PULLBACK / RETEST ke OB M1
+   // Kondisi retest: harga saat ini berada dalam zona OB +/- buffer
+   // ---------------------------------------------------------------
+   g_mtfResult.m1PullbackValid = false;
+   g_mtfResult.m1PullbackScore = 0.0;
+
+   // Retest ke OB Demand (Bullish Setup)
+   if (bestDemand.isValid)
+   {
+      bool priceTouchingDemand =
+         (currentBid >= (bestDemand.bottom - bufferPrice)) &&
+         (currentBid <= (bestDemand.top    + bufferPrice));
+
+      if (priceTouchingDemand)
+      {
+         g_mtfResult.m1PullbackValid   = true;
+         g_mtfResult.m1PullbackIsBuy   = true;
+         g_mtfResult.m1PullbackType    = "OB_DEMAND_RETEST";
+
+         // Hitung skor: +10 base, +5 jika displacement kuat, +5 jika CHoCH
+         double score = 10.0;
+         if (bestDemand.dispAtrMult >= 1.2) score += 5.0;
+
+         // Deteksi CHoCH sederhana M1: cari HH setelah LL sweep di area OB
+         bool chochBull = false;
+         double recentHigh = 0.0, recentLow = DBL_MAX;
+         for (int k = 1; k <= MathMin(10, copied - 1); k++)
+         {
+            if (m1rates[k].high > recentHigh) recentHigh = m1rates[k].high;
+            if (m1rates[k].low  < recentLow)  recentLow  = m1rates[k].low;
+         }
+         // CHoCH bullish: low baru di zona OB tapi close sudah ke atas high sebelumnya
+         if (m1rates[1].close > recentHigh && m1rates[1].low <= bestDemand.top)
+            chochBull = true;
+
+         g_mtfResult.m1CHoCHBull = chochBull;
+         if (chochBull) score += 5.0;
+
+         g_mtfResult.m1PullbackScore = MathMin(InpM1PullbackWeight, score);
+         bestDemand.isTested = true;
+         g_mtfResult.m1DemandOB = bestDemand;
+      }
+   }
+
+   // Retest ke OB Supply (Bearish Setup) — hanya jika belum konfirmasi demand
+   if (!g_mtfResult.m1PullbackValid && bestSupply.isValid)
+   {
+      bool priceTouchingSupply =
+         (currentAsk >= (bestSupply.bottom - bufferPrice)) &&
+         (currentAsk <= (bestSupply.top    + bufferPrice));
+
+      if (priceTouchingSupply)
+      {
+         g_mtfResult.m1PullbackValid   = true;
+         g_mtfResult.m1PullbackIsBuy   = false;
+         g_mtfResult.m1PullbackType    = "OB_SUPPLY_RETEST";
+
+         double score = 10.0;
+         if (bestSupply.dispAtrMult >= 1.2) score += 5.0;
+
+         bool chochBear = false;
+         double recentHigh = 0.0, recentLow = DBL_MAX;
+         for (int k = 1; k <= MathMin(10, copied - 1); k++)
+         {
+            if (m1rates[k].high > recentHigh) recentHigh = m1rates[k].high;
+            if (m1rates[k].low  < recentLow)  recentLow  = m1rates[k].low;
+         }
+         if (m1rates[1].close < recentLow && m1rates[1].high >= bestSupply.bottom)
+            chochBear = true;
+
+         g_mtfResult.m1CHoCHBear = chochBear;
+         if (chochBear) score += 5.0;
+
+         g_mtfResult.m1PullbackScore = MathMin(InpM1PullbackWeight, score);
+         bestSupply.isTested = true;
+         g_mtfResult.m1SupplyOB = bestSupply;
+      }
+   }
+
+   // ---------------------------------------------------------------
+   // Bangun string untuk HUD display
+   // ---------------------------------------------------------------
+   if (bestDemand.isValid)
+      g_mtfResult.m1DemandStr = DoubleToString(bestDemand.bottom, 2) +
+                                 " \u2013 " + DoubleToString(bestDemand.top, 2);
+   else
+      g_mtfResult.m1DemandStr = "TIDAK ADA OB";
+
+   if (bestSupply.isValid)
+      g_mtfResult.m1SupplyStr = DoubleToString(bestSupply.bottom, 2) +
+                                 " \u2013 " + DoubleToString(bestSupply.top, 2);
+   else
+      g_mtfResult.m1SupplyStr = "TIDAK ADA OB";
+
+   if (g_mtfResult.m1PullbackValid)
+   {
+      string typeLabel = g_mtfResult.m1PullbackIsBuy ? "DEMAND RETEST \u2191" : "SUPPLY RETEST \u2193";
+      g_mtfResult.m1StatusStr = StringFormat("\u2705 %s (+%.0f pts)", typeLabel, g_mtfResult.m1PullbackScore);
+   }
+   else
+   {
+      bool hasDemand = bestDemand.isValid;
+      bool hasSupply = bestSupply.isValid;
+      if (hasDemand && hasSupply)
+         g_mtfResult.m1StatusStr = "MENUNGGU RETEST (D & S TERDETEKSI)";
+      else if (hasDemand)
+         g_mtfResult.m1StatusStr = "MENUNGGU RETEST KE DEMAND M1";
+      else if (hasSupply)
+         g_mtfResult.m1StatusStr = "MENUNGGU RETEST KE SUPPLY M1";
+      else
+         g_mtfResult.m1StatusStr = "SCANNING... (BELUM ADA OB M1)";
+   }
+
+   g_mtfResult.lastUpdated = TimeCurrent();
+
+   Print("[M1-MTF] Bar ", TimeToString(currentM1BarTime, TIME_DATE|TIME_MINUTES),
+         " | Demand: ", g_mtfResult.m1DemandStr,
+         " | Supply: ", g_mtfResult.m1SupplyStr,
+         " | Status: ", g_mtfResult.m1StatusStr);
+}
+
+//+------------------------------------------------------------------+
 //| ON INIT                                                          |
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   DestroyDashboardGUI();
    trade.SetExpertMagicNumber(InpMagicNumber);
    trade.SetDeviationInPoints(InpDeviation);
    trade.SetTypeFillingBySymbol(_Symbol);
@@ -2599,6 +3103,22 @@ int OnInit()
    {
       Print("[ERROR] Gagal menginisialisasi handle indikator MQL5!");
       return INIT_FAILED;
+   }
+
+   // === Inisialisasi Handle M1 MTF Engine (v4.00) ===
+   if (InpUseMTFM1Engine)
+   {
+      h_m1_ema21 = iMA(_Symbol, PERIOD_M1, 21, 0, MODE_EMA, PRICE_CLOSE);
+      h_m1_atr14 = iATR(_Symbol, PERIOD_M1, 14);
+      if (h_m1_ema21 == INVALID_HANDLE || h_m1_atr14 == INVALID_HANDLE)
+      {
+         Print("[WARNING] Gagal inisialisasi M1 handle — fitur MTF dinonaktifkan.");
+         // Tidak fatal, EA tetap jalan tanpa M1 engine
+      }
+      else
+         Print("[M1-MTF] Handle M1 EMA21 & ATR14 berhasil diinisialisasi.");
+      ZeroMemory(g_mtfResult);
+      g_lastM1BarTime = 0;
    }
 
    if (InpUseHTFFilter)
@@ -2673,6 +3193,14 @@ int OnInit()
    Print("Aset: ", _Symbol, " | Timeframe: ", EnumToString(_Period), " | Magic: ", InpMagicNumber);
    Print("Start Time: ", TimeToString(g_eaStartTime, TIME_DATE|TIME_MINUTES), " | Start Balance: $", g_eaInitialBalance);
 
+   // Aktifkan timer 1 detik agar HUD selalu live dan langsung muncul walau pasar libur / weekend
+   EventSetTimer(1);
+   if (InpShowDashboard)
+   {
+      UpdateDashboard();
+      ChartRedraw(0);
+   }
+
    return INIT_SUCCEEDED;
 }
 
@@ -2681,6 +3209,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    if (h_ema8 != INVALID_HANDLE)       IndicatorRelease(h_ema8);
    if (h_ema21 != INVALID_HANDLE)      IndicatorRelease(h_ema21);
    if (h_ema125 != INVALID_HANDLE)     IndicatorRelease(h_ema125);
@@ -2691,6 +3220,9 @@ void OnDeinit(const int reason)
    if (h_htf_ema21 != INVALID_HANDLE)  IndicatorRelease(h_htf_ema21);
    if (h_rsi_div != INVALID_HANDLE)    IndicatorRelease(h_rsi_div);
    if (h_adx14 != INVALID_HANDLE)      IndicatorRelease(h_adx14);
+   // M1 handles
+   if (h_m1_ema21 != INVALID_HANDLE)   IndicatorRelease(h_m1_ema21);
+   if (h_m1_atr14 != INVALID_HANDLE)   IndicatorRelease(h_m1_atr14);
 
    ChartSetInteger(0, CHART_EVENT_MOUSE_MOVE, false);
    DestroyDashboardGUI();
@@ -2975,6 +3507,17 @@ bool CheckCircuitBreakers()
    }
 
    return true;
+}
+
+//+------------------------------------------------------------------+
+//| ON TIMER (UPDATE DASHBOARD OTOMATIS WALAUPUN PASAR TUTUP/WEEKEND)|
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   if (InpShowDashboard)
+   {
+      UpdateDashboard();
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -3294,6 +3837,15 @@ void AutoCalibrateTradingParameters()
 void OnTick()
 {
    AutoCalibrateTradingParameters();
+   if (g_eaManualPause)
+   {
+      g_lastSignalType = "PAUSED (TRADING DIHENTIKAN MANUAL VIA BUTTON)";
+      return;
+   }
+
+   // 0.5 Jalankan M1 MTF Engine setiap tick (throttled per M1 bar)
+   DetectM1Engine();
+
    // 1. Kelola Posisi Aktif (Trailing EMA 21, Structural Runner & Auto-BE Kunci Modal)
    ManageActiveTrades();
 
@@ -3438,7 +3990,7 @@ void OnTick()
    // 7. Auto Cut Profit pada Posisi Aktif Jika Terdeteksi Pembalikan Arah
    CheckAutoCutProfit(rates, ema21, currentAtr);
 
-   // 8. Periksa Batas Maksimal Posisi Aktif untuk Entry Baru
+   // 8. Periksa Batas Maksimal Posisi Aktif untuk Entry Baru (Posisi Aktif + Pending Orders)
    int openCount = 0;
    for (int i = PositionsTotal() - 1; i >= 0; i--)
    {
@@ -3448,6 +4000,7 @@ void OnTick()
             openCount++;
       }
    }
+
    if (openCount >= InpMaxOpenPositions)
       return;
 
@@ -3651,9 +4204,72 @@ void OnTick()
             return;
          }
 
+         // =========================================================================
+         // AI BRAIN & CANDLESTICK SHIELD PROTECTION GATE (v3.40)
+         // =========================================================================
+         int currentPatIdBUY = (isBullishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern));
+
+         // 1. Blacklist Check dari Memori Pembelajaran Mandiri (Dynamic Pattern Matrix)
+         if (InpUsePatternMatrix && g_patternMatrix[currentPatIdBUY].isBlacklisted)
+         {
+            g_lastSignalType = "AI BRAIN: POLA " + g_patternMatrix[currentPatIdBUY].name + " DI-BLACKLIST (Win Rate < " + DoubleToString(InpPatternBlacklistWinrate, 0) + "%)";
+            return;
+         }
+
+         // Terapkan Modifikasi Skor dari Hasil Pembelajaran Mandiri (Bonus / Penalti)
+         if (InpUsePatternMatrix)
+            scoreRes.totalScore += g_patternMatrix[currentPatIdBUY].scoreModifier;
+
+         // 2. AI Candlestick Shield: Filter Doji / Body Tipis (<22% Range)
+         double barRangeBUY = rates[1].high - rates[1].low;
+         if (barRangeBUY > 0)
+         {
+            double barBodyBUY      = MathAbs(rates[1].close - rates[1].open);
+            double barBodyPctBUY   = (barBodyBUY / barRangeBUY) * 100.0;
+            double barUpWickBUY    = rates[1].high - MathMax(rates[1].open, rates[1].close);
+            double barUpWickPctBUY = (barUpWickBUY / barRangeBUY) * 100.0;
+
+            if (InpFilterDojiCandles && barBodyPctBUY <= 22.0 && !isBullishSweepTrap)
+            {
+               g_lastSignalType = "AI SHIELD: BODY DOJI / RAGU-RAGU (" + DoubleToString(barBodyPctBUY, 0) + "% < 22%)";
+               return;
+            }
+
+            // 3. AI Candlestick Shield: Filter Ekor Penolakan Lawan Arah (Upper Wick >= 45% on BUY)
+            if (InpFilterExhaustionWicks && barUpWickPctBUY >= 45.0 && !isMomentumBreakout)
+            {
+               g_lastSignalType = "AI SHIELD: PENOLAKAN SELLER DI ATAS (" + DoubleToString(barUpWickPctBUY, 0) + "% >= 45%)";
+               return;
+            }
+
+            // 4. AI Candlestick Shield: Filter Overextended Engulfing (> 1.5x ATR dari EMA21)
+            if (InpFilterOverextended && (g_candleAnalysis.pattern == PATTERN_ENGULFING || isMomentumBreakout))
+            {
+               double distToEma21 = MathAbs(rates[1].close - currentEma21);
+               if (distToEma21 > (1.5 * currentAtr))
+               {
+                  g_lastSignalType = "AI SHIELD: OVEREXTENDED DARI EMA21 (" + DoubleToString(PriceToPips(distToEma21), 1) + " > 1.5x ATR)";
+                  return;
+               }
+            }
+         }
+
          bool canExecuteBuy = (smcBullishOk && isPullbackEMA && isFiboGPOk && isRejection && isHeadroomOk && isOBMitigatedOk && (scoreRes.totalScore >= effectiveMinScoreBUY)) ||
                               (isMomentumBreakout && isHeadroomOk) ||
                               (isBullishSweepTrap && isHeadroomOk);
+
+         // === GUARD M1 OB RETEST (v4.00 MTF Ketat) ===
+         // Blokir entry BUY jika Mode Ketat aktif dan tidak ada retest ke OB Demand M1
+         if (canExecuteBuy && InpUseMTFM1Engine && InpRequireM1OBRetest)
+         {
+            bool m1OK = g_mtfResult.m1PullbackValid && g_mtfResult.m1PullbackIsBuy;
+            if (!m1OK)
+            {
+               g_lastSignalType = "M1-GUARD: MENUNGGU RETEST OB DEMAND M1 | " + g_mtfResult.m1StatusStr;
+               Print("[M1-MTF GUARD] BUY diblokir — belum ada retest ke OB Demand M1. Status: ", g_mtfResult.m1StatusStr);
+               canExecuteBuy = false;
+            }
+         }
 
          if (canExecuteBuy)
          {
@@ -3721,22 +4337,34 @@ void OnTick()
             if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                slPrice = NormalizeDouble(slPrice - (InpAdaptiveSLBufferBoost * currentAtr), _Digits);
 
-            if (trade.Buy(lots, _Symbol, ask, slPrice, tpPrice, tradeCmt))
+            bool orderSuccess = trade.Buy(lots, _Symbol, ask, slPrice, tpPrice, tradeCmt);
+            ulong buyTicket = 0;
+            ulong buyDeal = 0;
+            double executedPrice = ask;
+            string execModeTag = "MARKET";
+
+            if (orderSuccess)
             {
-               ulong buyTicket = trade.ResultOrder();
-               ulong buyDeal = trade.ResultDeal();
-               GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)buyTicket), MathMax(ask - slPrice, 10 * _Point));
+               buyTicket = trade.ResultOrder();
+               buyDeal   = trade.ResultDeal();
+               executedPrice = ask;
+               execModeTag   = "MARKET";
+            }
+
+            if (orderSuccess)
+            {
+               GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)buyTicket), MathMax(executedPrice - slPrice, 10 * _Point));
                if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                   g_autopsy.tradesWithExtraBuffer--;
                SaveTradeEntrySnapshotMQL5(buyTicket, buyDeal, (isBullishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern)), 1, scoreRes.totalScore, currentAtr);
 
                lastOrderBarTime = iTime(_Symbol, _Period, 0);
                string patStr = isMomentumBreakout ? "Momentum Breakout Expansion" : g_candleAnalysis.patternName;
-               g_lastSignalType = "BUY EXECUTED: " + patStr + " (Skor: " + DoubleToString(scoreRes.totalScore, 0) + ")";
-               Print("[BUY EXECUTION] Lot: ", lots, " | Price: ", ask, " | SL: ", slPrice, " | TP: ", tpPrice, " | Pattern: ", patStr, " | Structure: ", g_smcAnalysis.structureName);
+               g_lastSignalType = execModeTag + " PLACED: " + patStr + " @ " + DoubleToString(executedPrice, _Digits);
+               Print("[", execModeTag, " EXECUTION] Lot: ", lots, " | Price: ", executedPrice, " | SL: ", slPrice, " | TP: ", tpPrice, " | Pattern: ", patStr, " | Structure: ", g_smcAnalysis.structureName);
                if (InpNotifyOnEntry)
                {
-                  SendPushAlert("BUY " + DoubleToString(lots, 2) + " " + _Symbol + " @ " + DoubleToString(ask, _Digits) +
+                  SendPushAlert(execModeTag + " " + DoubleToString(lots, 2) + " " + _Symbol + " @ " + DoubleToString(executedPrice, _Digits) +
                                 "\nSL: " + DoubleToString(slPrice, _Digits) + " | TP: " + DoubleToString(tpPrice, _Digits) +
                                 "\nPola: " + patStr);
                }
@@ -3935,9 +4563,72 @@ void OnTick()
          return;
       }
 
+      // =========================================================================
+      // AI BRAIN & CANDLESTICK SHIELD PROTECTION GATE (v3.40)
+      // =========================================================================
+      int currentPatIdSELL = (isBearishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern));
+
+      // 1. Blacklist Check dari Memori Pembelajaran Mandiri (Dynamic Pattern Matrix)
+      if (InpUsePatternMatrix && g_patternMatrix[currentPatIdSELL].isBlacklisted)
+      {
+         g_lastSignalType = "AI BRAIN: POLA " + g_patternMatrix[currentPatIdSELL].name + " DI-BLACKLIST (Win Rate < " + DoubleToString(InpPatternBlacklistWinrate, 0) + "%)";
+         return;
+      }
+
+      // Terapkan Modifikasi Skor dari Hasil Pembelajaran Mandiri (Bonus / Penalti)
+      if (InpUsePatternMatrix)
+         scoreRes.totalScore += g_patternMatrix[currentPatIdSELL].scoreModifier;
+
+      // 2. AI Candlestick Shield: Filter Doji / Body Tipis (<22% Range)
+      double barRangeSELL = rates[1].high - rates[1].low;
+      if (barRangeSELL > 0)
+      {
+         double barBodySELL      = MathAbs(rates[1].close - rates[1].open);
+         double barBodyPctSELL   = (barBodySELL / barRangeSELL) * 100.0;
+         double barLowWickSELL   = MathMin(rates[1].open, rates[1].close) - rates[1].low;
+         double barLowWickPctSELL= (barLowWickSELL / barRangeSELL) * 100.0;
+
+         if (InpFilterDojiCandles && barBodyPctSELL <= 22.0 && !isBearishSweepTrap)
+         {
+            g_lastSignalType = "AI SHIELD: BODY DOJI / RAGU-RAGU (" + DoubleToString(barBodyPctSELL, 0) + "% < 22%)";
+            return;
+         }
+
+         // 3. AI Candlestick Shield: Filter Ekor Penolakan Lawan Arah (Lower Wick >= 45% on SELL)
+         if (InpFilterExhaustionWicks && barLowWickPctSELL >= 45.0 && !isMomentumBreakout)
+         {
+            g_lastSignalType = "AI SHIELD: PENOLAKAN BUYER DI BAWAH (" + DoubleToString(barLowWickPctSELL, 0) + "% >= 45%)";
+            return;
+         }
+
+         // 4. AI Candlestick Shield: Filter Overextended Engulfing (> 1.5x ATR dari EMA21)
+         if (InpFilterOverextended && (g_candleAnalysis.pattern == PATTERN_ENGULFING || isMomentumBreakout))
+         {
+            double distToEma21 = MathAbs(rates[1].close - currentEma21);
+            if (distToEma21 > (1.5 * currentAtr))
+            {
+               g_lastSignalType = "AI SHIELD: OVEREXTENDED DARI EMA21 (" + DoubleToString(PriceToPips(distToEma21), 1) + " > 1.5x ATR)";
+               return;
+            }
+         }
+      }
+
       bool canExecuteSell = (smcBearishOk && isPullbackEMA && isFiboGPOk && isRejection && isHeadroomOk && isOBMitigatedOk && (scoreRes.totalScore >= effectiveMinScoreSELL)) ||
                             (isMomentumBreakout && isHeadroomOk) ||
                             (isBearishSweepTrap && isHeadroomOk);
+
+      // === GUARD M1 OB RETEST (v4.00 MTF Ketat) ===
+      // Blokir entry SELL jika Mode Ketat aktif dan tidak ada retest ke OB Supply M1
+      if (canExecuteSell && InpUseMTFM1Engine && InpRequireM1OBRetest)
+      {
+         bool m1OK = g_mtfResult.m1PullbackValid && !g_mtfResult.m1PullbackIsBuy;
+         if (!m1OK)
+         {
+            g_lastSignalType = "M1-GUARD: MENUNGGU RETEST OB SUPPLY M1 | " + g_mtfResult.m1StatusStr;
+            Print("[M1-MTF GUARD] SELL diblokir — belum ada retest ke OB Supply M1. Status: ", g_mtfResult.m1StatusStr);
+            canExecuteSell = false;
+         }
+      }
 
       if (canExecuteSell)
       {
@@ -4005,22 +4696,34 @@ void OnTick()
          if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
             slPrice = NormalizeDouble(slPrice + (InpAdaptiveSLBufferBoost * currentAtr), _Digits);
 
-         if (trade.Sell(lots, _Symbol, bid, slPrice, tpPrice, tradeCmt))
+         bool orderSuccess = trade.Sell(lots, _Symbol, bid, slPrice, tpPrice, tradeCmt);
+         ulong sellTicket = 0;
+         ulong sellDeal = 0;
+         double executedPrice = bid;
+         string execModeTag = "MARKET";
+
+         if (orderSuccess)
          {
-            ulong sellTicket = trade.ResultOrder();
-            ulong sellDeal = trade.ResultDeal();
-            GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)sellTicket), MathMax(slPrice - bid, 10 * _Point));
+            sellTicket = trade.ResultOrder();
+            sellDeal   = trade.ResultDeal();
+            executedPrice = bid;
+            execModeTag   = "MARKET";
+         }
+
+         if (orderSuccess)
+         {
+            GlobalVariableSet("VIKAR_INIT_R_" + IntegerToString((long)sellTicket), MathMax(slPrice - executedPrice, 10 * _Point));
             if (InpUseSelfHealing && g_autopsy.tradesWithExtraBuffer > 0)
                g_autopsy.tradesWithExtraBuffer--;
             SaveTradeEntrySnapshotMQL5(sellTicket, sellDeal, (isBearishSweepTrap ? 12 : (isMomentumBreakout ? 11 : (int)g_candleAnalysis.pattern)), -1, scoreRes.totalScore, currentAtr);
 
             lastOrderBarTime = iTime(_Symbol, _Period, 0);
             string patStr = isMomentumBreakout ? "Momentum Breakout Expansion" : g_candleAnalysis.patternName;
-            g_lastSignalType = "SELL EXECUTED: " + patStr + " (Skor: " + DoubleToString(scoreRes.totalScore, 0) + ")";
-            Print("[SELL EXECUTION] Lot: ", lots, " | Price: ", bid, " | SL: ", slPrice, " | TP: ", tpPrice, " | Pattern: ", patStr, " | Structure: ", g_smcAnalysis.structureName);
+            g_lastSignalType = execModeTag + " PLACED: " + patStr + " @ " + DoubleToString(executedPrice, _Digits);
+            Print("[", execModeTag, " EXECUTION] Lot: ", lots, " | Price: ", executedPrice, " | SL: ", slPrice, " | TP: ", tpPrice, " | Pattern: ", patStr, " | Structure: ", g_smcAnalysis.structureName);
             if (InpNotifyOnEntry)
             {
-               SendPushAlert("SELL " + DoubleToString(lots, 2) + " " + _Symbol + " @ " + DoubleToString(bid, _Digits) +
+               SendPushAlert(execModeTag + " " + DoubleToString(lots, 2) + " " + _Symbol + " @ " + DoubleToString(executedPrice, _Digits) +
                              "\nSL: " + DoubleToString(slPrice, _Digits) + " | TP: " + DoubleToString(tpPrice, _Digits) +
                              "\nPola: " + patStr);
             }
@@ -4191,6 +4894,8 @@ void CheckAutoCutProfit(const MqlRates &rates[], const double &ema21[], double c
 //+------------------------------------------------------------------+
 //| MANAJEMEN POSISI: AUTO-BREAKEVEN / SL+ & TRAILING STOP EMA 21    |
 //+------------------------------------------------------------------+
+
+
 void ManageActiveTrades()
 {
    if (!InpUseBreakeven && !InpUseTrailingEMA21 && !InpUsePartialClose && !InpUseTimeBasedExit && !InpAutoLockBEBeforeNews && !InpUseCandleTrailing && !InpUsePointsTrailing && !InpUseMilestoneRatchet && !InpUseStructuralTrailing)
@@ -4792,6 +5497,59 @@ void CreateOrUpdateText(string name, int x, int y, string text, color clr, int f
 //+------------------------------------------------------------------+
 //| HAPUS SEMUA ELEMEN GUI DASHBOARD                                 |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| PEMBUATAN ELEMEN TOMBOL INTERAKTIF (OBJ_BUTTON)                 |
+//+------------------------------------------------------------------+
+void CreateOrUpdateBtn(string name, int x, int y, int width, int height, string text, color bgColor, color textColor, int fontSize = 8, string font = "Segoe UI Bold")
+{
+   if (ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_BUTTON, 0, 0, 0);
+      ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+      ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+      ObjectSetInteger(0, name, OBJPROP_XSIZE, width);
+      ObjectSetInteger(0, name, OBJPROP_YSIZE, height);
+      ObjectSetString(0, name, OBJPROP_TEXT, text);
+      ObjectSetString(0, name, OBJPROP_FONT, font);
+      ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
+      ObjectSetInteger(0, name, OBJPROP_COLOR, textColor);
+      ObjectSetInteger(0, name, OBJPROP_BGCOLOR, bgColor);
+      ObjectSetInteger(0, name, OBJPROP_BORDER_COLOR, C'51,65,85');
+      ObjectSetInteger(0, name, OBJPROP_STATE, false);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   }
+   else
+   {
+      ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+      ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+      ObjectSetInteger(0, name, OBJPROP_XSIZE, width);
+      ObjectSetInteger(0, name, OBJPROP_YSIZE, height);
+      ObjectSetString(0, name, OBJPROP_TEXT, text);
+      ObjectSetInteger(0, name, OBJPROP_COLOR, textColor);
+      ObjectSetInteger(0, name, OBJPROP_BGCOLOR, bgColor);
+      ObjectSetInteger(0, name, OBJPROP_STATE, false);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| METER VISUAL ASCII/UNICODE PROGRESS BAR                         |
+//+------------------------------------------------------------------+
+string MakeProgressBar(double value, double maxVal, int barLen = 8)
+{
+   if (maxVal <= 0.0) return "[░░░░░░░░]";
+   double ratio = MathMin(MathMax(value / maxVal, 0.0), 1.0);
+   int filled = (int)MathRound(ratio * barLen);
+   string bar = "[";
+   for (int i = 0; i < barLen; i++)
+   {
+      if (i < filled) bar += "█";
+      else bar += "░";
+   }
+   bar += "]";
+   return bar;
+}
+
 void DestroyDashboardGUI()
 {
    ObjectsDeleteAll(0, "VIKAR_HUD_");
@@ -4829,6 +5587,19 @@ void RepositionDashboard(int newX, int newY)
 //+------------------------------------------------------------------+
 //| ON-CHART HUD DASHBOARD DISPLAY (MODERN GLASSMORPHIC GUI)         |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| ON-CHART HUD DASHBOARD DISPLAY (MODERN GLASSMORPHIC PRO GUI)     |
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| ON-CHART HUD DASHBOARD DISPLAY (PRO CYBER-COCKPIT GUI v3.30)     |
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| ON-CHART HUD DASHBOARD DISPLAY (PRO WIDE CYBER-COCKPIT v3.30)    |
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| ON-CHART HUD DASHBOARD: EXECUTIVE 2-COLUMN COCKPIT v3.30          |
+//| Ultra-Modern Fintech Dark Theme (460px x 350px Solid Canvas)     |
+//+------------------------------------------------------------------+
 void UpdateDashboard()
 {
    if (!InpShowDashboard)
@@ -4837,16 +5608,36 @@ void UpdateDashboard()
       return;
    }
 
-   Comment(""); // Bersihkan teks Comment biasa agar tidak bertumpuk di atas lilin
+   Comment(""); // Bersihkan teks comment biasa
+
+   // Bersihkan objek lama sekali saat inisialisasi / pergantian versi
+   static bool s_firstDashboardInit = true;
+   if (s_firstDashboardInit)
+   {
+      DestroyDashboardGUI();
+      s_firstDashboardInit = false;
+   }
 
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity  = AccountInfoDouble(ACCOUNT_EQUITY);
-   double spread  = PriceToPips(SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID));
+   double ask     = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid     = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double spread  = PriceToPips(ask - bid);
 
    int openCount = 0;
    double openFloating = GetOpenFloatingPnL(openCount);
 
-   // Hitung Statistik Sejak Start, Harian, dan Mingguan
+   // Hitung total lot terbuka
+   double totalLots = 0.0;
+   for (int p = PositionsTotal() - 1; p >= 0; p--)
+   {
+      if (posInfo.SelectByIndex(p) && posInfo.Symbol() == _Symbol && posInfo.Magic() == InpMagicNumber)
+         totalLots += posInfo.Volume();
+   }
+
+
+
+   // Statistik Sejak Start, Harian, Mingguan
    datetime startOfDay  = iTime(_Symbol, PERIOD_D1, 0);
    if (startOfDay == 0) startOfDay = TimeCurrent() - 86400;
 
@@ -4857,209 +5648,263 @@ void UpdateDashboard()
    TradeStats statsDaily = CalculateHistoryStats(startOfDay);
    TradeStats statsWeekly= CalculateHistoryStats(startOfWeek);
 
-   double totalGrowthPct = (g_eaInitialBalance > 0.0001) ? ((balance - g_eaInitialBalance) / g_eaInitialBalance * 100.0) : 0.0;
-
    int panelX = g_panelX;
    int panelY = g_panelY;
-   int panelW = g_panelW;
-   int panelH = InpShowPnLStats ? 646 : 566;
-   g_panelH = panelH;
+   int panelW = 460;
+   g_panelW = panelW;
 
-   // 1. Container Utama (Dark Slate Card)
-   CreateOrUpdateRect("VIKAR_HUD_BG", panelX, panelY, panelW, panelH, C'15,23,42', C'51,65,85');
-
-   // 2. Header Banner (Cyan Gradient Accent)
-   CreateOrUpdateRect("VIKAR_HUD_HDR_BG", panelX, panelY, panelW, 34, C'3,105,161', C'56,189,248');
-   CreateOrUpdateText("VIKAR_HUD_HDR_TITLE", panelX + 12, panelY + 4, "VIKAR 4-PILLAR PRO", clrWhite, 10, "Segoe UI Bold");
    double currentLotSize = CalculateRiskLot(PipToPrice(25.0));
    string lotDisplay = (InpLotType == LOT_TYPE_BROKER_MIN) ? ("Min Lot: " + DoubleToString(currentLotSize, 2)) : ("Lot: " + DoubleToString(currentLotSize, 2));
-   CreateOrUpdateText("VIKAR_HUD_HDR_SUB", panelX + 12, panelY + 19, _Symbol + " [" + EnumToString(_Period) + "] | " + lotDisplay + " | ID: " + IntegerToString(InpMagicNumber), C'224,242,254', 7, "Segoe UI");
-   CreateOrUpdateText("VIKAR_HUD_HDR_DRAG", panelX + panelW - 74, panelY + 9, "[ ⠿ GESER ]", C'186,230,253', 8, "Segoe UI Bold");
 
-   // 3. Ringkasan Saldo Akun
-   CreateOrUpdateText("VIKAR_HUD_BAL_START", panelX + 12, panelY + 42, "Start Modal: $" + DoubleToString(g_eaInitialBalance, 2) + "  (Aktivasi: " + TimeToString(g_eaStartTime, TIME_MINUTES) + ")", C'148,163,184', 7, "Segoe UI");
-   CreateOrUpdateText("VIKAR_HUD_BAL_CURR", panelX + 12, panelY + 56, "Saldo: $" + DoubleToString(balance, 2) + "  |  Equity: $" + DoubleToString(equity, 2), clrWhite, 8, "Segoe UI Bold");
 
-   color floatClr = (openFloating > 0) ? C'74,222,128' : (openFloating < 0 ? C'248,113,113' : C'203,213,225');
-   CreateOrUpdateText("VIKAR_HUD_FLOAT", panelX + 12, panelY + 72, "Floating: " + FormatPnL(openFloating) + " (" + IntegerToString(openCount) + " Posisi)  |  Spread: " + DoubleToString(spread, 1) + " pips", floatClr, 8, "Segoe UI Bold");
-
-   int currY = panelY + 92;
-
-   // 4. Inset Card: Rekap Profit & Loss (Harian, Mingguan, Total)
-   if (InpShowPnLStats)
+   // ===================================================================
+   // JIKA DALAM MODE MINIMIZED (HANYA BILAH RAMPING 44px)
+   // ===================================================================
+   if (g_hudMinimized)
    {
-      CreateOrUpdateRect("VIKAR_HUD_PNL_BG", panelX + 8, currY, panelW - 16, 78, C'30,41,59', C'71,85,105');
-      CreateOrUpdateText("VIKAR_HUD_PNL_TITLE", panelX + 15, currY + 4, "📊 REKAP PROFIT & LOSS REAL-TIME:", C'251,191,36', 8, "Segoe UI Bold");
+      int minH = 46;
+      g_panelH = minH;
+      CreateOrUpdateRect("VIKAR_HUD_BG", panelX, panelY, panelW, minH, C'13,18,30', C'30,41,59');
+      CreateOrUpdateRect("VIKAR_HUD_HDR_LINE", panelX, panelY + minH - 2, panelW, 2, C'14,165,233', C'14,165,233');
 
-      color pnlTotalClr = (statsTotal.netProfit > 0) ? C'74,222,128' : (statsTotal.netProfit < 0 ? C'248,113,113' : clrWhite);
-      double totalWinratePct = (statsTotal.totalTrades > 0) ? ((double)statsTotal.winTrades / statsTotal.totalTrades * 100.0) : 0.0;
-      string winrateStr = (statsTotal.totalTrades > 0) ? (" | WR: " + DoubleToString(totalWinratePct, 1) + "%") : "";
-      CreateOrUpdateText("VIKAR_HUD_PNL_TOTAL", panelX + 15, currY + 20, "• Sejak Start : " + FormatPnL(statsTotal.netProfit) + " (" + (totalGrowthPct >= 0 ? "+" : "") + DoubleToString(totalGrowthPct, 1) + "%) | " + IntegerToString(statsTotal.winTrades) + "W/" + IntegerToString(statsTotal.lossTrades) + "L" + winrateStr, pnlTotalClr, 8, "Segoe UI Bold");
+      CreateOrUpdateText("VIKAR_HUD_HDR_TITLE", panelX + 14, panelY + 8, "◈ VIKAR PRO v3.30", clrWhite, 9, "Segoe UI Bold");
+      color floatClrMin = (openFloating > 0) ? C'74,222,128' : (openFloating < 0 ? C'248,113,113' : C'203,213,225');
+      string minStatus = "Float: " + FormatPnL(openFloating) + " (" + IntegerToString(openCount) + "P) | Eq: $" + DoubleToString(equity, 2);
+      CreateOrUpdateText("VIKAR_HUD_HDR_SUB", panelX + 14, panelY + 26, minStatus, floatClrMin, 7, "Segoe UI Bold");
 
-      double dailyWinratePct = (statsDaily.totalTrades > 0) ? ((double)statsDaily.winTrades / statsDaily.totalTrades * 100.0) : 0.0;
-      string dailyWRStr = (statsDaily.totalTrades > 0) ? (" (" + IntegerToString(statsDaily.winTrades) + "W/" + IntegerToString(statsDaily.lossTrades) + "L - " + DoubleToString(dailyWinratePct, 0) + "%)") : "";
-      CreateOrUpdateText("VIKAR_HUD_PNL_DAY", panelX + 15, currY + 38, "• Hari Ini    : Net " + FormatPnL(statsDaily.netProfit) + dailyWRStr + " (+$" + DoubleToString(statsDaily.grossProfit, 2) + " / -$" + DoubleToString(statsDaily.grossLoss, 2) + ")", C'226,232,240', 7, "Segoe UI");
-      CreateOrUpdateText("VIKAR_HUD_PNL_WEEK", panelX + 15, currY + 54, "• Minggu Ini  : Net " + FormatPnL(statsWeekly.netProfit) + " (Profit: +$" + DoubleToString(statsWeekly.grossProfit, 2) + " | Loss: -$" + DoubleToString(statsWeekly.grossLoss, 2) + ")", C'226,232,240', 7, "Segoe UI");
-      currY += 86;
+      CreateOrUpdateBtn("VIKAR_HUD_BTN_VIEW", panelX + panelW - 78, panelY + 10, 68, 26, "👁️ EXPAND", C'15,23,42', C'52,211,153', 7);
+      ChartRedraw(0);
+      return;
    }
 
-   // 5. Status 4 Pilar Multi-Confluence Cerdas & Skor Institusional
-   string scoreStr = "Ready";
-   if (g_lastScoreResult.totalScore > 0)
-      scoreStr = DoubleToString(g_lastScoreResult.totalScore, 0) + "/100 (" + g_lastScoreResult.grade + ")";
+   // ===================================================================
+   // MODE EXPANDED (EXECUTIVE 2-COLUMN COCKPIT)
+   // ===================================================================
+
+   // 1. MASTER CANVAS BACKGROUND (SOLID SLATE-OBSIDIAN - ANTI-TEMBUS CANDLE)
+   int totalH = 348;
+   g_panelH = totalH;
+   CreateOrUpdateRect("VIKAR_HUD_BG", panelX, panelY, panelW, totalH, C'13,18,30', C'30,41,59');
+
+   // 2. HEADER BANNER (Y: 0 s/d 44)
+   CreateOrUpdateRect("VIKAR_HUD_HDR_BG", panelX, panelY, panelW, 44, C'18,24,38', C'2,132,199');
+   CreateOrUpdateRect("VIKAR_HUD_HDR_LINE", panelX, panelY + 42, panelW, 2, C'14,165,233', C'14,165,233');
+
+   CreateOrUpdateText("VIKAR_HUD_HDR_TITLE", panelX + 14, panelY + 6, "◈ VIKAR 4-PILLAR PRO  v3.30", clrWhite, 10, "Segoe UI Bold");
+
+   string pauseStatus = g_eaManualPause ? "[PAUSED]" : "[ACTIVE]";
+   string headerSubStr = _Symbol + " • " + EnumToString(_Period) + " • " + lotDisplay + " • " + pauseStatus + " • ID: " + IntegerToString(InpMagicNumber);
+   CreateOrUpdateText("VIKAR_HUD_HDR_SUB", panelX + 14, panelY + 24, headerSubStr, C'148,163,184', 7, "Segoe UI");
+
+   // Tombol Mini / Expand
+   CreateOrUpdateBtn("VIKAR_HUD_BTN_VIEW", panelX + panelW - 74, panelY + 9, 64, 25, "👁️ MINI", C'15,23,42', C'52,211,153', 7);
+
+   int currY = panelY + 48;
+
+   // 3. BARIS KPI: RINGKASAN AKUN & PERFORMA (Y: 48 s/d 124, Tinggi 76px)
+   CreateOrUpdateRect("VIKAR_HUD_ACC_BG", panelX + 8, currY, panelW - 16, 76, C'20,28,45', C'39,51,73');
+   CreateOrUpdateText("VIKAR_HUD_SEC1_TITLE", panelX + 16, currY + 6, "💼 RINGKASAN AKUN & PERFORMA", C'251,191,36', 8, "Segoe UI Bold");
+
+   color floatClr = (openFloating > 0) ? C'74,222,128' : (openFloating < 0 ? C'248,113,113' : C'203,213,225');
+   string floatSummary = "Floating: " + FormatPnL(openFloating) + " (" + IntegerToString(openCount) + " Pos)";
+   CreateOrUpdateText("VIKAR_HUD_SEC1_FLOAT", panelX + panelW - 175, currY + 6, floatSummary, floatClr, 7, "Segoe UI Bold");
+
+   int col1X = panelX + 16;
+   int col2X = panelX + 235;
+
+   // Baris 1: Saldo & Ekuitas
+   CreateOrUpdateText("VIKAR_HUD_ACC_L1", col1X, currY + 25, "Saldo    : $" + DoubleToString(balance, 2), clrWhite, 7, "Segoe UI Bold");
+   CreateOrUpdateText("VIKAR_HUD_ACC_R1", col2X, currY + 25, "Ekuitas  : $" + DoubleToString(equity, 2), clrWhite, 7, "Segoe UI Bold");
+
+   // Baris 2: Hari Ini & Minggu Ini
+   double dailyWinratePct = (statsDaily.totalTrades > 0) ? ((double)statsDaily.winTrades / statsDaily.totalTrades * 100.0) : 0.0;
+   string dailyWRStr = (statsDaily.totalTrades > 0) ? (" (" + DoubleToString(dailyWinratePct, 0) + "% WR)") : "";
+   CreateOrUpdateText("VIKAR_HUD_ACC_L2", col1X, currY + 42, "Hari Ini : " + FormatPnL(statsDaily.netProfit) + dailyWRStr, (statsDaily.netProfit >= 0 ? C'74,222,128' : C'248,113,113'), 7, "Segoe UI");
+   CreateOrUpdateText("VIKAR_HUD_ACC_R2", col2X, currY + 42, "Minggu Ini: " + FormatPnL(statsWeekly.netProfit), (statsWeekly.netProfit >= 0 ? C'74,222,128' : C'248,113,113'), 7, "Segoe UI");
+
+   // Baris 3: Daily Drawdown & Spread
+   double ddLimit = InpMaxDailyEquityDDPct;
+   double bufferSisa = MathMax(0.0, ddLimit - g_currentDailyDDPct);
+   color ddClr = (g_currentDailyDDPct >= ddLimit * 0.75) ? C'248,113,113' : ((g_currentDailyDDPct > 0.0) ? C'251,191,36' : C'74,222,128');
+   CreateOrUpdateText("VIKAR_HUD_ACC_L3", col1X, currY + 59, "Daily DD : " + DoubleToString(g_currentDailyDDPct, 2) + "% / " + DoubleToString(ddLimit, 1) + "% (" + DoubleToString(bufferSisa, 1) + "% Sisa)", ddClr, 7, "Segoe UI Bold");
+   CreateOrUpdateText("VIKAR_HUD_ACC_R3", col2X, currY + 59, "Spread   : " + DoubleToString(spread, 1) + " pip | " + lotDisplay, C'148,163,184', 7, "Segoe UI");
+
+   currY += 80;
+
+   // 4. GRID 2-KOLOM: 4-PILAR SMC (KIRI) vs SENSOR PASAR & RADAR (KANAN)
+   // Lebar masing-masing kolom: 218px, tinggi: 138px
+   int colCardW = 218;
+   int leftCardX = panelX + 8;
+   int rightCardX = panelX + 234;
+
+   // --- KARTU KIRI: 4-PILAR SMC & KONFLUENSI ---
+   CreateOrUpdateRect("VIKAR_HUD_SMC_BG", leftCardX, currY, colCardW, 138, C'18,25,40', C'30,41,59');
+   CreateOrUpdateRect("VIKAR_HUD_SMC_HDR_BG", leftCardX, currY, colCardW, 22, C'24,33,52', C'40,53,78');
+   CreateOrUpdateText("VIKAR_HUD_SMC_HDR", leftCardX + 8, currY + 4, "🏛️ 4-PILAR SMC", C'56,189,248', 7, "Segoe UI Bold");
+
+   string scoreStr = (g_lastScoreResult.totalScore > 0) ? (DoubleToString(g_lastScoreResult.totalScore, 0) + "/100 (" + g_lastScoreResult.grade + ")") : "Ready";
    color scoreClr = (g_lastScoreResult.totalScore >= 80.0) ? C'74,222,128' : ((g_lastScoreResult.totalScore >= 65.0) ? C'251,191,36' : C'203,213,225');
-   CreateOrUpdateText("VIKAR_HUD_SCORE", panelX + 12, currY, "[Confluence]  : " + scoreStr, scoreClr, 7, "Segoe UI Bold");
-   currY += 14;
+   CreateOrUpdateText("VIKAR_HUD_SMC_SCORE", leftCardX + colCardW - 88, currY + 4, "Skor: " + scoreStr, scoreClr, 7, "Segoe UI Bold");
 
-   string obStr = "OB: Scanning";
-   if (g_bullishOB.isValid && !g_bullishOB.isMitigated)
-      obStr = "Bull OB: " + DoubleToString(g_bullishOB.bottom, 1) + "-" + DoubleToString(g_bullishOB.top, 1) + " (Disp: " + DoubleToString(g_bullishOB.displacementAtr, 1) + "x)";
-   else if (g_bearishOB.isValid && !g_bearishOB.isMitigated)
-      obStr = "Bear OB: " + DoubleToString(g_bearishOB.bottom, 1) + "-" + DoubleToString(g_bearishOB.top, 1) + " (Disp: " + DoubleToString(g_bearishOB.displacementAtr, 1) + "x)";
-   else if (g_activeFVG.isValid)
-      obStr = "FVG: " + DoubleToString(g_activeFVG.bottom, 1) + "-" + DoubleToString(g_activeFVG.top, 1);
-   CreateOrUpdateText("VIKAR_HUD_OB_FVG", panelX + 12, currY, "[Order Block] : " + obStr, C'244,114,182', 7, "Segoe UI");
-   currY += 14;
-
-   string smcStr = g_smcAnalysis.structureName;
+   // Baris 1: SMC Structure Trend
+   string smcStr = (g_smcAnalysis.structureName != "") ? g_smcAnalysis.structureName : "Equilibrium";
    if (g_smcAnalysis.hasSweep) smcStr += " [SWEEP]";
    else if (g_smcAnalysis.hasBOS) smcStr += " [BOS]";
-   CreateOrUpdateText("VIKAR_HUD_PILAR1", panelX + 12, currY, "[SMC Struktur]: " + smcStr, C'56,189,248', 7, "Segoe UI Bold");
+   CreateOrUpdateText("VIKAR_HUD_SMC_L1", leftCardX + 8, currY + 25, "SMC Trend  : " + smcStr, C'56,189,248', 7, "Segoe UI Bold");
 
-   color htfClr = (StringFind(g_htfMacroStr, "BULLISH") >= 0) ? C'74,222,128' : ((StringFind(g_htfMacroStr, "BEARISH") >= 0) ? C'248,113,113' : C'251,191,36');
-   string htfText = InpUseHTFFilter ? g_htfMacroStr : "FILTER OFF";
-   CreateOrUpdateText("VIKAR_HUD_PILAR_HTF", panelX + 12, currY + 14, "[Macro " + EnumToString(InpHTFTimeframe) + "]  : " + htfText, htfClr, 7, "Segoe UI Bold");
-
+   // Baris 2: Dealing Range (Diskon / Premium)
    string rangeStr = (g_smcAnalysis.isDiscount ? "DISKON (" : "PREMIUM (") + DoubleToString(g_smcAnalysis.discountPercent, 1) + "%)";
-   if (currentFibo.isValid) rangeStr += " | GP: " + DoubleToString(currentFibo.level618, 2);
-   CreateOrUpdateText("VIKAR_HUD_PILAR2", panelX + 12, currY + 28, "[Dealing Range]: " + rangeStr, (g_smcAnalysis.isDiscount ? C'74,222,128' : C'248,113,113'), 7, "Segoe UI");
+   CreateOrUpdateText("VIKAR_HUD_SMC_L2", leftCardX + 8, currY + 43, "Zona Harga : " + rangeStr, (g_smcAnalysis.isDiscount ? C'74,222,128' : C'248,113,113'), 7, "Segoe UI");
 
-   string patStr = g_chartPattern.isValid ? (g_chartPattern.patternName + " [" + DoubleToString(g_chartPattern.score, 0) + "p]") : "Scanning Geometri...";
-   color patClr = g_chartPattern.isValid ? (g_chartPattern.isBullish ? C'74,222,128' : C'248,113,113') : C'148,163,184';
-   CreateOrUpdateText("VIKAR_HUD_CHART_PAT", panelX + 12, currY + 42, "[Pola Chart]  : " + patStr, patClr, 7, "Segoe UI Bold");
-
-   string candleStr = g_candleAnalysis.patternName;
-   if (g_candleAnalysis.score > 0) candleStr += " [Skor: " + DoubleToString(g_candleAnalysis.score, 0) + "/100]";
-   color candleClr = g_candleAnalysis.isHighQuality ? C'251,191,36' : C'203,213,225';
-   CreateOrUpdateText("VIKAR_HUD_PILAR3", panelX + 12, currY + 56, "[Pola Lilin]  : " + candleStr, candleClr, 7, "Segoe UI");
-
+   // Baris 3: Triple EMA Baseline
    double ema125Val[];
    ArraySetAsSeries(ema125Val, true);
-   string emaTrendStr = "EMA Baseline Ready";
+   string emaTrendStr = "Bullish (Ribbon)";
    if (CopyBuffer(h_ema125, 0, 0, 2, ema125Val) >= 2)
    {
       double closePrice = iClose(_Symbol, _Period, 1);
-      emaTrendStr = (closePrice > ema125Val[1]) ? "BULLISH (Di Atas 125)" : "BEARISH (Di Bawah 125)";
+      emaTrendStr = (closePrice > ema125Val[1]) ? "Bullish (> EMA125)" : "Bearish (< EMA125)";
    }
-   CreateOrUpdateText("VIKAR_HUD_PILAR4", panelX + 12, currY + 70, "[Triple EMA]  : " + emaTrendStr + " | Ribbon 8/21", C'232,121,249', 7, "Segoe UI");
-   CreateOrUpdateText("VIKAR_HUD_PILAR5", panelX + 12, currY + 84, "[S/R Pivot]   : P: " + DoubleToString(currentPivot.P, 2) + " [R1: " + DoubleToString(currentPivot.R1, 2) + " | S1: " + DoubleToString(currentPivot.S1, 2) + "]", C'148,163,184', 7, "Segoe UI");
+   CreateOrUpdateText("VIKAR_HUD_SMC_L3", leftCardX + 8, currY + 61, "Triple EMA : " + emaTrendStr, C'232,121,249', 7, "Segoe UI");
 
-   // Baris VSA Footprint
+   // Baris 4: Order Block & FVG
+   string obStr = "OB: Scanning...";
+   if (g_bullishOB.isValid && !g_bullishOB.isMitigated)
+      obStr = "Bull OB " + DoubleToString(g_bullishOB.bottom, 1) + "-" + DoubleToString(g_bullishOB.top, 1);
+   else if (g_bearishOB.isValid && !g_bearishOB.isMitigated)
+      obStr = "Bear OB " + DoubleToString(g_bearishOB.bottom, 1) + "-" + DoubleToString(g_bearishOB.top, 1);
+   CreateOrUpdateText("VIKAR_HUD_SMC_L4", leftCardX + 8, currY + 79, "Order Block: " + obStr, C'244,114,182', 7, "Segoe UI");
+
+   // Baris 5: Fibo Golden Pocket
+   string fiboStr = currentFibo.isValid ? ("GP 61.8% @" + DoubleToString(currentFibo.level618, 1)) : "GP: Scanning...";
+   CreateOrUpdateText("VIKAR_HUD_SMC_L5", leftCardX + 8, currY + 97, "Fibo Pocket: " + fiboStr, C'52,211,153', 7, "Segoe UI");
+
+   // Baris 6: Pola Lilin & Chart Pattern
+   string candleStr = (g_candleAnalysis.patternName != "") ? g_candleAnalysis.patternName : "Lilin Normal";
+   if (g_candleAnalysis.score > 0) candleStr += " [" + DoubleToString(g_candleAnalysis.score, 0) + "p]";
+   CreateOrUpdateText("VIKAR_HUD_SMC_L6", leftCardX + 8, currY + 115, "Pola Lilin : " + candleStr, C'251,191,36', 7, "Segoe UI");
+
+
+   // --- KARTU KANAN: SENSOR PASAR & RADAR RISIKO ---
+   CreateOrUpdateRect("VIKAR_HUD_RADAR_BG", rightCardX, currY, colCardW, 138, C'18,25,40', C'30,41,59');
+   CreateOrUpdateRect("VIKAR_HUD_RADAR_HDR_BG", rightCardX, currY, colCardW, 22, C'24,33,52', C'40,53,78');
+   CreateOrUpdateText("VIKAR_HUD_RADAR_HDR", rightCardX + 8, currY + 4, "🛡️ SENSOR PASAR", C'52,211,153', 7, "Segoe UI Bold");
+
+   string regimeStr = (g_currentRegime == REGIME_CHOPPY_SIDEWAYS) ? "CHOPPY" : "TREND SEHAT";
+   color regimeClr  = (g_currentRegime == REGIME_CHOPPY_SIDEWAYS) ? C'248,113,113' : C'74,222,128';
+   CreateOrUpdateText("VIKAR_HUD_RADAR_BADGE", rightCardX + colCardW - 74, currY + 4, "CI: " + DoubleToString(g_currentChoppiness, 0), regimeClr, 7, "Segoe UI Bold");
+
+   // Baris 1: Kondisi Cuaca Pasar
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L1", rightCardX + 8, currY + 25, "Kondisi    : " + regimeStr + " (Regime)", regimeClr, 7, "Segoe UI Bold");
+
+   // Baris 2: Macro Trend H1
+   color htfClr = (StringFind(g_htfMacroStr, "BULLISH") >= 0) ? C'74,222,128' : ((StringFind(g_htfMacroStr, "BEARISH") >= 0) ? C'248,113,113' : C'251,191,36');
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L2", rightCardX + 8, currY + 43, "Macro H1   : " + g_htfMacroStr, htfClr, 7, "Segoe UI Bold");
+
+   // Baris 3: VSA Volume Flow
    string vsaDisplay = InpUseVSA ? (g_lastScoreResult.vsaStatus != "" ? g_lastScoreResult.vsaStatus : "Normal Volume") : "VSA: OFF";
-   color vsaClr = (StringFind(vsaDisplay, "CLIMAX") >= 0) ? C'74,222,128' : ((StringFind(vsaDisplay, "NO-SUPPLY") >= 0) ? C'56,189,248' : C'203,213,225');
-   CreateOrUpdateText("VIKAR_HUD_VSA", panelX + 12, currY + 98, "[VSA Footprint]: " + vsaDisplay, vsaClr, 7, "Segoe UI Bold");
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L3", rightCardX + 8, currY + 61, "VSA Volume : " + vsaDisplay, C'203,213,225', 7, "Segoe UI");
 
-   // Baris Circuit Guard & Consecutive Loss Counter
-   string cbDisplay = "Normal (0/" + IntegerToString(InpMaxConsecutiveLosses) + " Loss)";
-   color cbClr = C'74,222,128';
-   if (g_cooldownUntilTime > TimeCurrent())
-   {
-      int remMins = (int)((g_cooldownUntilTime - TimeCurrent()) / 60);
-      cbDisplay = "COOLDOWN (" + IntegerToString(remMins) + " Mnt Sisa)";
-      cbClr = C'248,113,113';
-   }
-   else if (g_dailyLossLimitHit)
-   {
-      cbDisplay = "DAILY LOCK REACHED";
-      cbClr = C'248,113,113';
-   }
-   else if (g_consecutiveLossCount > 0)
-   {
-      cbDisplay = IntegerToString(g_consecutiveLossCount) + "/" + IntegerToString(InpMaxConsecutiveLosses) + " Loss Berturut-turut";
-      cbClr = C'251,191,36';
-   }
-   CreateOrUpdateText("VIKAR_HUD_CB", panelX + 12, currY + 112, "[Circuit Guard]: " + cbDisplay, cbClr, 7, "Segoe UI Bold");
+   // Baris 4: ADX Trend Kinetic Strength
+   string adxStatus = (g_currentADXVal >= 25.0) ? " (Kuat)" : " (Lemah)";
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L4", rightCardX + 8, currY + 79, "ADX Power  : " + DoubleToString(g_currentADXVal, 1) + adxStatus, C'251,191,36', 7, "Segoe UI");
 
-   string healDisplay = "STANDBY (NORMAL)";
-   color healClr = C'52,211,153';
-   if (InpUseSelfHealing && g_autopsy.isActive)
-   {
-      string extraInfo = "";
-      if (g_autopsy.failedDirection == 1 && TimeCurrent() < g_autopsy.directionPenaltyUntil) extraInfo += " [BUY PENALTY]";
-      else if (g_autopsy.failedDirection == -1 && TimeCurrent() < g_autopsy.directionPenaltyUntil) extraInfo += " [SELL PENALTY]";
-      if (g_autopsy.toxicHour >= 0) extraInfo += " [TOXIC H:" + IntegerToString(g_autopsy.toxicHour) + "]";
-      healDisplay = "AKTIF (+" + DoubleToString(g_autopsy.scorePenalty, 0) + " Pts" + extraInfo + " | " + g_autopsy.lossReason + ")";
-      healClr = C'251,191,36';
-   }
-   CreateOrUpdateText("VIKAR_HUD_HEAL", panelX + 12, currY + 125, "[AI Brain / Heal]: " + healDisplay, healClr, 7, "Segoe UI Bold");
+   // Baris 5: Circuit Guard Max Consecutive Loss
+   string cbDisplay = "0/" + IntegerToString(InpMaxConsecutiveLosses) + " Loss (Aman)";
+   if (g_cooldownUntilTime > TimeCurrent()) cbDisplay = "COOLDOWN AKTIF";
+   else if (g_consecutiveLossCount > 0) cbDisplay = IntegerToString(g_consecutiveLossCount) + " Loss";
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L5", rightCardX + 8, currY + 97, "Circuit G. : " + cbDisplay, C'74,222,128', 7, "Segoe UI");
 
-   // Baris Cuaca Pasar (Market Regime Choppiness)
-   string regimeStr = "NORMAL (CI: " + DoubleToString(g_currentChoppiness, 1) + ")";
-   color regimeClr  = C'74,222,128';
-   if (g_currentRegime == REGIME_CHOPPY_SIDEWAYS)
-   {
-      regimeStr = "CHOPPY / FAKEOUT RISK (CI: " + DoubleToString(g_currentChoppiness, 1) + ")";
-      regimeClr = C'248,113,113';
-   }
-   else if (g_currentRegime == REGIME_STRONG_TREND)
-   {
-      regimeStr = "STRONG TREND (CI: " + DoubleToString(g_currentChoppiness, 1) + ")";
-      regimeClr = C'56,189,248';
-   }
-   CreateOrUpdateText("VIKAR_HUD_REGIME", panelX + 12, currY + 138, "[Cuaca Pasar]: " + regimeStr, regimeClr, 7, "Segoe UI Bold");
+   // Baris 6: Disiplin Harian (Max Order)
+   string discText = IntegerToString(g_todayTradesCount) + (InpUseMaxDailyTrades ? ("/" + IntegerToString(InpMaxDailyTrades)) : "") + " Order Hari Ini";
+   CreateOrUpdateText("VIKAR_HUD_RADAR_L6", rightCardX + 8, currY + 115, "Disiplin   : " + discText, C'148,163,184', 7, "Segoe UI");
 
-   // Baris Rapor Pola Teruji (AI Pattern Matrix)
-   string pmStr = InpUsePatternMatrix ? ("Terbaik: " + g_bestPatternStr) : "NONAKTIF";
-   CreateOrUpdateText("VIKAR_HUD_PATMAT", panelX + 12, currY + 151, "[Rapor Pola]: " + pmStr, C'203,213,225', 7, "Segoe UI");
+   currY += 142;
 
-   // Baris Pre-News & Divergence Status (v2.60)
-   color newsClr = (StringFind(g_newsStatusStr, "WASPADA") >= 0) ? C'248,113,113' : C'74,222,128';
-   CreateOrUpdateText("VIKAR_HUD_NEWS", panelX + 12, currY + 164, "[News Shield]: " + g_newsStatusStr + " | Momentum: " + g_divStatusStr, newsClr, 7, "Segoe UI Bold");
+   // 5. BARIS STATUS EKSEKUSI & ACTION (Y: 270 s/d 338, Tinggi 68px)
+   CreateOrUpdateRect("VIKAR_HUD_STATUS_BG", panelX + 8, currY, panelW - 16, 68, C'11,15,25', C'14,165,233');
+   CreateOrUpdateText("VIKAR_HUD_STATUS_LBL", panelX + 16, currY + 6, "⚡ RADAR EKSEKUSI & STATUS SINYAL TERAKHIR:", C'56,189,248', 7, "Segoe UI Bold");
 
-   // Baris Anti-Sideways & VSA Status (v2.70)
-   string adxStr = InpUseADXFilter ? ("ADX: " + DoubleToString(g_currentADXVal, 1)) : "ADX: OFF";
-   string volStr = InpUseVolumeFilter ? ("Vol: " + DoubleToString(g_currentVolRatio * 100.0, 0) + "%") : "Vol: OFF";
-   CreateOrUpdateText("VIKAR_HUD_SIDEWAYS", panelX + 12, currY + 177, "[Anti-Sideways]: " + adxStr + " | " + volStr + " | Slope: AKTIF", C'148,163,184', 7, "Segoe UI");
+   // Tombol Emergency Close All
+   CreateOrUpdateBtn("VIKAR_HUD_BTN_CLOSEALL", panelX + panelW - 104, currY + 6, 92, 24, "🚨 CLOSE ALL", C'153,27,27', clrWhite, 7);
 
-   // Baris Prop Firm Guardian & Trap Hunter (v3.00)
-   string pfStr = InpUseEquityGuardian ? ("DD: " + DoubleToString(g_currentDailyDDPct, 1) + "% / Max " + DoubleToString(InpMaxDailyEquityDDPct, 1) + "%") : "OFF";
-   color pfClr = (g_currentDailyDDPct >= InpMaxDailyEquityDDPct * 0.75) ? C'248,113,113' : C'148,163,184';
-   CreateOrUpdateText("VIKAR_HUD_PROPFIRM", panelX + 12, currY + 190, "[Prop Firm Guard]: " + pfStr + " | Trap Hunter: AKTIF", pfClr, 7, "Segoe UI Bold");
-
-   string discStatus = "AKTIF";
-   color discClr = C'74,222,128';
-   if (g_dailyProfitLocked) { discStatus = "DONE FOR THE DAY (LOCKED)"; discClr = C'251,191,36'; }
-   else if (IsInRolloverWindowMQL5()) { discStatus = "ROLLOVER FREEZE"; discClr = C'248,113,113'; }
-   else if (InpUseMaxDailyTrades && g_todayTradesCount >= InpMaxDailyTrades) { discStatus = "MAX TRADES REACHED"; discClr = C'248,113,113'; }
-   string discStr = "Trades: " + IntegerToString(g_todayTradesCount) + (InpUseMaxDailyTrades ? ("/" + IntegerToString(InpMaxDailyTrades)) : "") + " | " + discStatus;
-   CreateOrUpdateText("VIKAR_HUD_PRODISCIPLINE", panelX + 12, currY + 203, "[Pro Discipline] : " + discStr, discClr, 7, "Segoe UI Bold");
-   currY += 228;
-
-   // 6. Inset Live Execution Status
-   CreateOrUpdateRect("VIKAR_HUD_STATUS_BG", panelX + 8, currY, panelW - 16, 52, C'15,23,42', C'2,132,199');
-   CreateOrUpdateText("VIKAR_HUD_STATUS_LBL", panelX + 15, currY + 4, "STATUS KECERDASAN PASAR:", C'56,189,248', 7, "Segoe UI Bold");
-   string statusDisplay = g_lastSignalType;
+   string statusDisplay = (g_lastSignalType != "") ? g_lastSignalType : "MENUNGGU SETUP GRADE A (SCANNING)";
    if (openCount == 0 && StringFind(g_lastSignalType, "EXECUTED") >= 0)
-      statusDisplay = "ORDER SELESAI (SUDAH HIT TP / SL+) | SCANNING SETUP";
-   CreateOrUpdateText("VIKAR_HUD_STATUS_VAL", panelX + 15, currY + 19, statusDisplay, clrWhite, 7, "Segoe UI Bold");
+      statusDisplay = "ORDER SELESAI (SUDAH HIT TP / SL+) | SCANNING ULANG";
+   CreateOrUpdateText("VIKAR_HUD_STATUS_VAL", panelX + 16, currY + 24, "● " + statusDisplay, clrWhite, 8, "Segoe UI Bold");
+
+   // === M1 ZONE RADAR (MTF Price Action Engine v4.00) ===
+   if (InpUseMTFM1Engine)
+   {
+      currY += 44;
+      CreateOrUpdateText("VIKAR_HUD_M1_HDR", panelX + 10, currY + 4,
+         "── M1 ZONE RADAR (OB RETEST ENGINE) ──", C'100,116,139', 7, "Segoe UI Bold");
+
+      currY += 18;
+      color demandColor = g_mtfResult.m1DemandOB.isValid ?
+                          (g_mtfResult.m1DemandOB.isTested ? C'34,197,94' : C'56,189,248') : C'100,116,139';
+      CreateOrUpdateText("VIKAR_HUD_M1_DEMAND", panelX + 16, currY,
+         "▲ OB Demand M1 : " + g_mtfResult.m1DemandStr, demandColor, 7, "Segoe UI");
+
+      currY += 14;
+      color supplyColor = g_mtfResult.m1SupplyOB.isValid ?
+                          (g_mtfResult.m1SupplyOB.isTested ? C'249,115,22' : C'248,113,113') : C'100,116,139';
+      CreateOrUpdateText("VIKAR_HUD_M1_SUPPLY", panelX + 16, currY,
+         "▼ OB Supply M1 : " + g_mtfResult.m1SupplyStr, supplyColor, 7, "Segoe UI");
+
+      currY += 14;
+      color m1StatusColor = g_mtfResult.m1PullbackValid ? C'34,197,94' : C'251,191,36';
+      CreateOrUpdateText("VIKAR_HUD_M1_STATUS", panelX + 16, currY,
+         "● Status M1    : " + g_mtfResult.m1StatusStr, m1StatusColor, 7, "Segoe UI Bold");
+      currY -= 44; // reset offset agar baris berikutnya tetap di posisi normal
+   }
+
    string beStr = InpUseBreakeven ? ("SL+ (+" + DoubleToString(InpBreakevenLockPips, 0) + "p)") : "BE: OFF";
    string cutStr = InpAutoCutProfit ? "Cut: ON" : "Cut: OFF";
    string trailStr = (InpUsePointsTrailing || InpUseCandleTrailing || InpUseTrailingEMA21) ? "Trail: ON" : "Trail: OFF";
-   string partialStr = InpUsePartialClose ? ("Partial: " + DoubleToString(InpPartialClosePercent, 0) + "%") : "Partial: OFF";
-   CreateOrUpdateText("VIKAR_HUD_STATUS_CFG", panelX + 15, currY + 34, beStr + " | " + cutStr + " | " + trailStr + " | Lot: " + DoubleToString(currentLotSize, 2), C'148,163,184', 7, "Segoe UI");
+   CreateOrUpdateText("VIKAR_HUD_STATUS_CFG", panelX + 16, currY + 44, "Mode: INSTANT MARKET | " + beStr + " | " + cutStr + " | " + trailStr, C'148,163,184', 7, "Segoe UI");
+
+
+   int finalH = (currY + 74) - panelY;
+   g_panelH = finalH;
+   ObjectSetInteger(0, "VIKAR_HUD_BG", OBJPROP_YSIZE, finalH);
 
    ChartRedraw(0);
 }
 
-//+------------------------------------------------------------------+
-//| CHART EVENT (DRAG & DROP DASHBOARD PANEL SECARA INTERAKTIF)      |
-//+------------------------------------------------------------------+
 void OnChartEvent(const int id,
                   const long &lparam,
                   const double &dparam,
                   const string &sparam)
 {
    if (!InpShowDashboard) return;
+
+   if (id == CHARTEVENT_OBJECT_CLICK)
+   {
+      if (sparam == "VIKAR_HUD_BTN_VIEW")
+      {
+         g_hudMinimized = !g_hudMinimized;
+         DestroyDashboardGUI();
+         UpdateDashboard();
+         ChartRedraw(0);
+         return;
+      }
+
+      else if (sparam == "VIKAR_HUD_BTN_PAUSE")
+      {
+         g_eaManualPause = !g_eaManualPause;
+         UpdateDashboard();
+         ChartRedraw(0);
+         return;
+      }
+      else if (sparam == "VIKAR_HUD_BTN_CLOSEALL")
+      {
+         CloseAllOpenOrders();
+         UpdateDashboard();
+         ChartRedraw(0);
+         return;
+      }
+   }
 
    if (id == CHARTEVENT_MOUSE_MOVE)
    {

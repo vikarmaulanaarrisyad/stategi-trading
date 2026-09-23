@@ -19,7 +19,7 @@ InpUseBreakeven=true
 InpBreakevenMode=0
 InpBreakevenTriggerPips=12.0
 InpBreakevenRRTrigger=1.0
-InpBreakevenLockPips=4.0
+InpBreakevenLockPips=5.0
 InpUseTrailingEMA21=true
 InpTrailingBufferPips=4.0
 InpUsePartialClose=true
@@ -195,3 +195,11 @@ InpUseTrapHunter=1
 InpMinSweepPips=4.0
 InpMaxSweepPips=30.0
 InpMinRejectionWickPct=40.0
+
+
+InpMaxSpreadPips=6.0
+
+InpTrailingStartPoints=120.0
+InpTrailingDistPoints=80.0
+InpTrailingStepPoints=15.0
+InpCandleTrailBufferPoints=30.0

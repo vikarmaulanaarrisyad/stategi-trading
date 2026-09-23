@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIKAR EA 4-Pillar Pro - Hasil Backtest Jan 2026 s/d Sekarang (M5)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f9fafb;
+            --text-secondary: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b 0%, #0b0f19 50%, #030712 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+        .container { max-width: 1240px; margin: 0 auto; }
+
+        .header {
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(15, 23, 42, 0.7));
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .header-title h1 {
+            font-size: 26px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        .header-title p { color: var(--text-secondary); font-size: 14px; }
+        .badge-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+        .badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 25px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 22px;
+            backdrop-filter: blur(10px);
+        }
+        .kpi-card .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-card .val { font-size: 28px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace; }
+        .kpi-card .sub { font-size: 12.5px; margin-top: 4px; }
+        .text-green { color: var(--accent-green); }
+        .text-cyan { color: var(--accent-cyan); }
+        .text-amber { color: var(--accent-amber); }
+
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 25px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #f1f5f9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+        th {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 12px 14px;
+            text-align: left;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+        td {
+            padding: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .chart-box {
+            height: 380px;
+            position: relative;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <h1>VIKAR EA 4-PILLAR PRO (v3.30 APEX GRANDMASTER)</h1>
+                <p>Laporan Resmi Backtest M5: 1 Januari 2026 s/d Sekarang (50,123 Bar Riil Broker Didimax)</p>
+            </div>
+            <div class="badge-grid">
+                <span class="badge">Aset: XAUUSD.dmb</span>
+                <span class="badge">Timeframe: M5</span>
+                <span class="badge">Periode: 1 Jan 2026 - 19 Sep 2026</span>
+                <span class="badge">Total Bar: 50,123 Bar</span>
+            </div>
+        </div>
+
+        <!-- Top KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="label">Total Keuntungan Bersih</div>
+                <div class="val text-green">+$28,136.03</div>
+                <div class="sub text-green">Pertumbuhan Modal: +281.4%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Saldo Akhir Akun</div>
+                <div class="val text-cyan">$38,136.03</div>
+                <div class="sub text-secondary">Modal Awal: $10,000.00</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Profit Factor</div>
+                <div class="val text-amber">1.60</div>
+                <div class="sub text-secondary">Rasio Untung vs Rugi</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Max Drawdown</div>
+                <div class="val text-green">1.52%</div>
+                <div class="sub text-green">Super Aman (Standar Prop Firm &lt; 5.0%)</div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="section-card">
+            <div class="section-title">📈 KURVA PERTUMBUHAN EKUITAS (EQUITY CURVE) - M5 (JANUARI - SEPTEMBER 2026)</div>
+            <div class="chart-box">
+                <canvas id="equityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Monthly Breakdown Table -->
+        <div class="section-card">
+            <div class="section-title">📅 KINERJA PER BULAN (JANUARI - SEPTEMBER 2026)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="font-family: Outfit;">Bulan</th>
+                        <th style="font-family: Outfit;">Total Transaksi</th>
+                        <th style="font-family: Outfit;">Win Rate</th>
+                        <th style="font-family: Outfit;">Keuntungan Bersih ($)</th>
+                        <th style="font-family: Outfit;">Status Konsistensi</th>
+                    </tr>
+                </thead>
+                <tbody>
+    
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Januari 2026</strong></td>
+                        <td>492 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">55.3%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$4,362.25</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Februari 2026</strong></td>
+                        <td>501 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">52.1%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$4,499.39</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Maret 2026</strong></td>
+                        <td>541 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">55.5%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$6,718.68</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">April 2026</strong></td>
+                        <td>531 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">54.6%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$2,550.80</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Mei 2026</strong></td>
+                        <td>501 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">54.7%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$2,379.07</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Juni 2026</strong></td>
+                        <td>558 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">56.3%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$2,588.77</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Juli 2026</strong></td>
+                        <td>557 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">58.0%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$1,501.34</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">Agustus 2026</strong></td>
+                        <td>467 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">54.6%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$1,937.65</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f8fafc;">September 2026</strong></td>
+                        <td>347 Trade</td>
+                        <td style="color: #10b981; font-weight: bold;">56.2%</td>
+                        <td style="color: #10b981; font-weight: bold;">+$1,598.07</td>
+                        <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; font-family: Outfit;">PROFIT HIJAU</span></td>
+                    </tr>
+        
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Presets Comparison Table -->
+        <div class="section-card">
+            <div class="section-title">📊 KOMPARASI SELURUH PRESET PADA PERIODE YANG SAMA (M5)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="font-family: Outfit;">Preset</th>
+                        <th style="font-family: Outfit;">Total Trade</th>
+                        <th style="font-family: Outfit;">Win Rate</th>
+                        <th style="font-family: Outfit;">Profit Factor</th>
+                        <th style="font-family: Outfit;">Net Profit ($)</th>
+                        <th style="font-family: Outfit;">Pertumbuhan</th>
+                        <th style="font-family: Outfit;">Max Drawdown</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #f59e0b;">XAUUSD_BACKTEST_1YEAR_OPTIMAL</strong></td>
+                        <td>4495</td>
+                        <td style="color: #10b981; font-weight: bold;">55.3%</td>
+                        <td style="color: #38bdf8;">1.60</td>
+                        <td style="color: #10b981; font-weight: bold;">+$28,136.03</td>
+                        <td style="color: #10b981;">+281.4%</td>
+                        <td style="color: #f59e0b;">1.52%</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #ec4899;">XAUUSD_FAST_AUTO_TRADE</strong></td>
+                        <td>5223</td>
+                        <td style="color: #10b981; font-weight: bold;">57.4%</td>
+                        <td style="color: #38bdf8;">1.58</td>
+                        <td style="color: #10b981; font-weight: bold;">+$29,474.87</td>
+                        <td style="color: #10b981;">+294.7%</td>
+                        <td style="color: #f59e0b;">1.47%</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #818cf8;">XAUUSD_M5_Scalping_Confluence</strong></td>
+                        <td>3060</td>
+                        <td style="color: #10b981; font-weight: bold;">50.7%</td>
+                        <td style="color: #38bdf8;">1.39</td>
+                        <td style="color: #10b981; font-weight: bold;">+$14,098.61</td>
+                        <td style="color: #10b981;">+141.0%</td>
+                        <td style="color: #f59e0b;">3.94%</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="font-family: Outfit; color: #10b981;">XAUUSD_HIGH_WINRATE_SNIPER</strong></td>
+                        <td>1403</td>
+                        <td style="color: #10b981; font-weight: bold;">53.6%</td>
+                        <td style="color: #38bdf8;">1.49</td>
+                        <td style="color: #10b981; font-weight: bold;">+$9,263.60</td>
+                        <td style="color: #10b981;">+92.6%</td>
+                        <td style="color: #f59e0b;">2.15%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('equityChart').getContext('2d');
+        const labels = ["02 Jan", "06 Jan", "07 Jan", "09 Jan", "13 Jan", "14 Jan", "16 Jan", "19 Jan", "21 Jan", "22 Jan", "24 Jan", "27 Jan", "29 Jan", "30 Jan", "03 Feb", "04 Feb", "05 Feb", "09 Feb", "10 Feb", "12 Feb", "13 Feb", "17 Feb", "18 Feb", "20 Feb", "24 Feb", "25 Feb", "27 Feb", "02 Mar", "04 Mar", "05 Mar", "06 Mar", "10 Mar", "11 Mar", "13 Mar", "16 Mar", "18 Mar", "19 Mar", "23 Mar", "24 Mar", "26 Mar", "27 Mar", "31 Mar", "01 Apr", "03 Apr", "07 Apr", "09 Apr", "10 Apr", "14 Apr", "15 Apr", "17 Apr", "20 Apr", "22 Apr", "24 Apr", "27 Apr", "29 Apr", "30 Apr", "02 May", "05 May", "07 May", "08 May", "12 May", "13 May", "15 May", "18 May", "20 May", "21 May", "25 May", "27 May", "28 May", "01 Jun", "02 Jun", "04 Jun", "05 Jun", "09 Jun", "11 Jun", "12 Jun", "16 Jun", "17 Jun", "19 Jun", "22 Jun", "24 Jun", "25 Jun", "29 Jun", "01 Jul", "02 Jul", "06 Jul", "07 Jul", "09 Jul", "11 Jul", "14 Jul", "16 Jul", "17 Jul", "21 Jul", "23 Jul", "24 Jul", "28 Jul", "30 Jul", "31 Jul", "04 Aug", "05 Aug", "07 Aug", "10 Aug", "12 Aug", "13 Aug", "17 Aug", "19 Aug", "20 Aug", "21 Aug", "25 Aug", "27 Aug", "28 Aug", "01 Sep", "02 Sep", "04 Sep", "07 Sep", "09 Sep", "10 Sep", "14 Sep", "16 Sep", "17 Sep", "19 Sep"];
+        const data = [10000.0, 10076.91, 10151.67, 10261.34, 10402.46, 10443.73, 10522.13, 10665.17, 10583.61, 11031.37, 11427.4, 12189.53, 12657.7, 13019.6, 15193.45, 15841.79, 16523.88, 17256.28, 17446.43, 17629.06, 17872.76, 18121.42, 18771.95, 18674.66, 18545.32, 18794.1, 18777.98, 18820.97, 19610.51, 20266.68, 20658.32, 20731.17, 21082.12, 21501.92, 21494.04, 21462.12, 22100.24, 22938.31, 23820.4, 24217.73, 25057.45, 25176.68, 25635.08, 25985.25, 26202.57, 26786.02, 26837.62, 26619.25, 26654.64, 26921.09, 27028.28, 27351.57, 27432.0, 27710.01, 27772.5, 28031.81, 28104.74, 28366.59, 28713.99, 29057.57, 29334.11, 29375.47, 29371.13, 29724.66, 29949.71, 30001.13, 29874.51, 30056.47, 30104.09, 30545.75, 30735.61, 30939.75, 30953.91, 31193.83, 31478.12, 31977.9, 31879.76, 32014.02, 32159.73, 32717.16, 32587.66, 32915.32, 32983.68, 33098.96, 33399.27, 33458.49, 33539.18, 33976.31, 33935.64, 33646.63, 33668.34, 33678.3, 33763.21, 34087.69, 34125.17, 34052.69, 34155.3, 34499.64, 34828.18, 34923.08, 35164.69, 35285.0, 35365.02, 35511.75, 35294.95, 35387.59, 35521.22, 35750.86, 36096.45, 36404.46, 36326.49, 36437.99, 36882.54, 36857.72, 36673.52, 36925.16, 37319.57, 37738.21, 37946.71, 37967.52, 38097.09];
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Equity XAUUSD_BACKTEST_1YEAR_OPTIMAL ($)',
+                    data: data,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#64748b', maxTicksLimit: 14 }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#64748b',
+                            callback: function(val) { return '$' + val.toLocaleString(); }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#cbd5e1' } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) { return 'Saldo: $' + ctx.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2 }); }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

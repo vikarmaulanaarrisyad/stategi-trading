@@ -20,10 +20,11 @@ InpDeviation=15
 ;--- 2. TARGET STOP LOSS, TAKE PROFIT & EXIT STRATEGY ---
 InpSLType=0
 InpSLBufferAtrMult=1.2
-InpMinSLPips=18.0
-InpMaxSLPips=30.0
-InpFixedSLPips=25.0
+InpMinSLPips=50.0
+InpMaxSLPips=55.0
+InpFixedSLPips=50.0
 InpTPType=0
+InpFixedTPPips=150.0
 InpRiskRewardRatio=2.0
 
 ;--- Auto-Breakeven / SL+ (Kunci Modal & Profit Terjamin) ---
@@ -233,3 +234,10 @@ InpUseTrapHunter=1
 InpMinSweepPips=4.0
 InpMaxSweepPips=30.0
 InpMinRejectionWickPct=40.0
+InpEnableProPullbackScalper=1
+InpTrendAlignment=2
+InpStrictTrendOnly=1
+InpBlockCounterTrendCHoCH=1
+InpMinPullbackConfluences=2
+InpRequireVSAExhaustion=1
+InpFastScalpTP1AtSwing=1

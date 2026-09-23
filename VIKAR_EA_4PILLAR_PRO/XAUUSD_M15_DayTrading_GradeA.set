@@ -195,3 +195,11 @@ InpUseTrapHunter=1
 InpMinSweepPips=4.0
 InpMaxSweepPips=30.0
 InpMinRejectionWickPct=40.0
+
+
+InpMaxSpreadPips=6.0
+
+InpTrailingStartPoints=180.0
+InpTrailingDistPoints=120.0
+InpTrailingStepPoints=20.0
+InpCandleTrailBufferPoints=40.0
